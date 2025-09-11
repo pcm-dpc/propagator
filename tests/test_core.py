@@ -32,4 +32,3 @@ def test_get_moisture_with_actions():
     propagator.actions_moisture = np.full((2, 2), 5.0)
     result = propagator.get_moisture()
     assert np.all(result == 15.0)
-

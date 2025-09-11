@@ -59,7 +59,7 @@ fuels:
     spotting: False
     burn: True
     probability: {1: 0.25, 2: 0.3, 3: 0.005, 4: 0.375, 5: 0.2, 6: 0.35, 7: 0.075}
-  7: 
+  7:
     name: non-fire prone forests
     v0: 60
     d0: 1
