@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from propagator.core.constants import CELLSIZE
+from propagator.core.constants import CELLSIZE, REALIZATIONS
 from propagator.core.models import (
     BoundaryConditions,
     PropagatorOutput,
@@ -67,7 +67,6 @@ class Propagator:
     # input
     veg: npt.NDArray[np.integer]
     dem: npt.NDArray[np.floating]
-    realizations: int
 
     # set fuels
     fuels: FuelSystem = field(default_factory=lambda: FUEL_SYSTEM_LEGACY)
@@ -76,8 +75,10 @@ class Propagator:
     p_time_fn: Any = field(default=get_p_time_fn("wang"))
     p_moist_fn: Any = field(default=get_p_moisture_fn("trucchia"))
 
+    # simulation settings
     cellsize: float = field(default=CELLSIZE)
     do_spotting: bool = False
+    realizations: int = REALIZATIONS
 
     # scheduler object
     scheduler: Scheduler = field(init=False)
