@@ -68,7 +68,6 @@ class Propagator:
     veg: npt.NDArray[np.integer]
     dem: npt.NDArray[np.floating]
     realizations: int
-    do_spotting: bool
 
     # set fuels
     fuels: FuelSystem = field(default_factory=lambda: FUEL_SYSTEM_LEGACY)
@@ -78,6 +77,7 @@ class Propagator:
     p_moist_fn: Any = field(default=get_p_moisture_fn("trucchia"))
 
     cellsize: float = field(default=CELLSIZE)
+    do_spotting: bool = False
 
     # scheduler object
     scheduler: Scheduler = field(init=False)
@@ -105,6 +105,8 @@ class Propagator:
         self.fireline_int = np.zeros(
             shape + (self.realizations,), dtype=np.float32
         )
+        if not self.do_spotting:
+            self.fuels.disable_spotting()
 
     def compute_fire_probability(self) -> npt.NDArray[np.floating]:
         """Return mean burn probability across realizations for each cell.

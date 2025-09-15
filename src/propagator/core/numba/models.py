@@ -207,6 +207,11 @@ class FuelSystem:
             self.burn[i],  # type: ignore
         )
 
+    def disable_spotting(self):
+        for i in range(len(self.spotting)):
+            self.spotting[i] = False
+            self.prob_ign_by_embers[i] = 0.0
+
 
 def fuelsystem_from_dict(fuels: dict[int, dict]) -> FuelSystem:
     n_fuels = len(fuels)
