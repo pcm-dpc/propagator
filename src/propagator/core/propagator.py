@@ -184,8 +184,8 @@ class Propagator:
         s = np.sum(np.where(mask, the_var, 0.0), axis=2, dtype=np.float64)
         c = np.sum(mask, axis=2)
 
-        # mean where count>0; NaN otherwise
-        out = np.full(self.veg.shape, np.nan, dtype=np.float32)
+        # mean where count>0; zero otherwise
+        out = np.full(self.veg.shape, 0.0, dtype=np.float32)
         np.divide(s, c, out=out, where=c > 0)
         return out
 
