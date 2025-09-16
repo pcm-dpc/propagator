@@ -350,13 +350,13 @@ class Propagator:
 
         Returns:
             np.ndarray: Base moisture plus action-derived increments,
-            clipped to [0, 100].
+            clipped to [0, 1].
         """
         if self.actions_moisture is None:
             return self.moisture
 
         moisture = self.moisture + self.actions_moisture
-        moisture = np.clip(moisture, 0, 100)
+        moisture = np.clip(moisture, 0.0, 1.0)
 
         return moisture
 
@@ -378,7 +378,7 @@ class Propagator:
             if self.actions_moisture is None:
                 self.actions_moisture = np.zeros_like(self.moisture)
             self.actions_moisture += scheduler_event.additional_moisture
-            self.actions_moisture = np.clip(self.actions_moisture, 0, 100)
+            self.actions_moisture = np.clip(self.actions_moisture, 0.0, 1.0)
 
         if scheduler_event.wind_dir is not None:
             self.wind_dir = scheduler_event.wind_dir
