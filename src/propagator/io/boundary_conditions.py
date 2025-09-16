@@ -37,7 +37,7 @@ class TimedInput(BaseModel):
     # Weather conditions
     w_dir: float = Field(
         default=0,
-        description="wind direction in degrees from north",
+        description="wind direction clockwise in degrees from north (north=0)",
     )
     w_speed: float = Field(0.0, description="wind speed in km/h")
     moisture: float = Field(

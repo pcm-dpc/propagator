@@ -26,7 +26,7 @@ class ActionType(str, Enum):
     HEAVY_ACTION = "heavy_action"
 
 
-# constants
+# constants > moisture values (%)
 WATERLINE_ACTION_MOIST_VALUE = 27
 CANADAIR_MOIST_VALUE = 25
 CANADAIR_BUFFER_MOIST_VALUE = 22

@@ -27,6 +27,7 @@ from propagator.core.numba import (
     get_p_moisture_fn,
     get_p_time_fn,
 )
+from propagator.core.constants import REALIZATIONS, CELLSIZE
 from propagator.core.numba.models import FuelSystem
 from propagator.io.boundary_conditions import TimedInput
 from propagator.io.geo import GeographicInfo
@@ -72,7 +73,10 @@ class PropagatorConfigurationLegacy(BaseModel):
         False,
         description="Export run logs",
     )
-    realizations: int = Field(1, ge=1, description="Number of realizations")
+    realizations: int = Field(
+        REALIZATIONS, ge=1,
+        description="Number of realizations"
+    )
     init_date: datetime = Field(
         default_factory=datetime.now,
         description="Datetime of the simulated event",
@@ -97,6 +101,9 @@ class PropagatorConfigurationLegacy(BaseModel):
     ros_model: RateOfSpreadModel = Field("wang", description="ROS model name")
     prob_moist_model: MoistureModel = Field(
         "trucchia", description="Moisture model name"
+    )
+    cellsize: float = Field(
+        CELLSIZE, gt=0.0, description="Cell size in meters"
     )
     p_time_fn: Optional[object] = Field(default=None, exclude=True)
     p_moist_fn: Optional[object] = Field(default=None, exclude=True)
