@@ -212,7 +212,7 @@ class Propagator:
             Dataclass with counters and area summaries.
         """
         n_active = len(self.scheduler.active().tolist())
-        cell_area = 1  # unitary value to count number of cells
+        cell_area = (self.cellsize**2)  # m^2, squared cells
         area_mean = float(np.sum(values) * cell_area)
         area_50 = float(np.sum(values >= 0.5) * cell_area)
         area_75 = float(np.sum(values >= 0.75) * cell_area)
