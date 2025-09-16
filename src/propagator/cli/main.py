@@ -55,6 +55,10 @@ class PropagatorCLILegacy(BaseSettings):
         ...,
         description="Path to output folder where results will be saved",
     )
+    isochrones: list[float] = Field(
+        [0.9, 0.95],
+        description="Isochrones thresholds to be saved (e.g. 0.9, 0.95)",
+    )
     record: bool = Field(
         False,
         description="Export run logs",
@@ -169,6 +173,9 @@ def main():
         raster_variables_mapping={
             "fire_probability": lambda output: output.fire_probability,
             "fireline_intensity_mean": lambda output: output.fli_mean,
+            "fireline_intensity_max": lambda output: output.fli_max,
+            "ros_mean": lambda output: output.ros_mean,
+            "ros_max": lambda output: output.ros_max,
         },
         output_folder=cfg.output,
         geo_info=geo_info,
@@ -183,7 +190,7 @@ def main():
         start_date=cfg.init_date,
         output_folder=cfg.output,
         prefix="isochrones",
-        thresholds=[0.9, 0.95],
+        thresholds=cli.isochrones,
         geo_info=geo_info,
         dst_crs=dst_crs,
     )
