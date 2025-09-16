@@ -65,11 +65,12 @@ def trim_values(
     min_row, max_row = int(rows / 2 - 1), int(rows / 2 + 1)
     min_col, max_col = int(cols / 2 - 1), int(cols / 2 + 1)
 
-    v_rows = np.where(values.sum(axis=1) > 0)[0]
+    mask = values > 0
+    v_rows = np.where(mask.sum(axis=1) > 0)[0]
     if len(v_rows) > 0:
         min_row, max_row = v_rows[0] - 1, v_rows[-1] + 2
 
-    v_cols = np.where(values.sum(axis=0) > 0)[0]
+    v_cols = np.where(mask.sum(axis=0) > 0)[0]
     if len(v_cols) > 0:
         min_col, max_col = v_cols[0] - 1, v_cols[-1] + 2
 

@@ -128,7 +128,7 @@ class Propagator:
         numpy.ndarray
             2D array with max RoS per cell.
         """
-        RoS_max = np.max(self.ros, axis=2).astype(np.float32)
+        RoS_max = np.nanmax(self.ros, axis=2).astype(np.float32)
         return RoS_max
 
     def compute_ros_mean(self) -> npt.NDArray[np.floating]:
@@ -184,11 +184,11 @@ class Propagator:
         mask = self.fire > 0
 
         # accumulate in float64 to reduce precision loss
-        s = np.sum(np.where(mask, the_var, 0.0), axis=2, dtype=np.float64)
+        s = np.nansum(np.where(mask, the_var, 0.0), axis=2, dtype=np.float64)
         c = np.sum(mask, axis=2)
 
-        # mean where count>0; zero otherwise
-        out = np.full(self.veg.shape, 0.0, dtype=np.float32)
+        # mean where count>0; NaN otherwise
+        out = np.full(self.veg.shape, np.nan, dtype=np.float32)
         np.divide(s, c, out=out, where=c > 0)
         return out
 
