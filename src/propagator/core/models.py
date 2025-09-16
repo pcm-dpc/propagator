@@ -127,7 +127,7 @@ class BoundaryConditions:
     moisture : Optional[npt.NDArray[np.floating]]
         Fuel moisture map (%).
     wind_dir : Optional[npt.NDArray[np.floating]]
-        Wind direction map (radians, mathematical convention).
+        Wind direction map (weather convention, degrees clockwise, north is 0).
     wind_speed : Optional[npt.NDArray[np.floating]]
         Wind speed map (km/h).
     ignition_mask : Optional[npt.NDArray[np.bool_]]

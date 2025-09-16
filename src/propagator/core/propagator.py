@@ -46,20 +46,24 @@ class Propagator:
         2D array of vegetation codes as defined in the provided FuelSystem
     dem : numpy.ndarray
         2D array of elevation values (meters above sea level).
-    realizations : int
-        Number of stochastic realizations to simulate.
-    do_spotting : bool
-        Whether to enable fire-spotting in the model.
-    fuels: FuelSystem
-        Object defining fuels types and fire propagation probability between fuel types
-    p_time_fn: Any
-        The function to compute the spread time (must be jit-compiled). Units are compliant with other functions.
-            signature: (v0: float, dh: float, angle_to: float, dist: float, moist: float, w_dir: float, w_speed: float) -> tuple[float, float]
-    p_moist_fn: Any
-        The function to compute the moisture probability (must be jit-compiled). Units are compliant with other functions.
-            signature: (moist: float) -> float
-    cellsize : float
+    fuels: FuelSystem, optional
+        Object defining fuels types and fire propagation
+        probability between fuel types
+    cellsize : float, optional
         The size of lattice (meters).
+    do_spotting : bool, optional
+        Whether to enable fire-spotting in the model.
+    realizations : int, optional
+        Number of stochastic realizations to simulate.
+    p_time_fn: Any, optional
+        The function to compute the spread time (must be jit-compiled).
+        Units are compliant with other functions.
+            signature: (v0: float, dh: float, angle_to: float, dist: float,
+            moist: float, w_dir: float, w_speed: float) -> tuple[float, float]
+    p_moist_fn: Any, optional
+        The function to compute the moisture probability (must be jit-compiled)
+        Units are compliant with other functions.
+            signature: (moist: float) -> float
     """
 
     # domain parameters for the simulation
@@ -71,14 +75,14 @@ class Propagator:
     # set fuels
     fuels: FuelSystem = field(default_factory=lambda: FUEL_SYSTEM_LEGACY)
 
-    # selected simulation functions
-    p_time_fn: Any = field(default=get_p_time_fn("wang"))
-    p_moist_fn: Any = field(default=get_p_moisture_fn("trucchia"))
-
     # simulation settings
     cellsize: float = field(default=CELLSIZE)
     do_spotting: bool = False
     realizations: int = REALIZATIONS
+
+    # selected simulation functions
+    p_time_fn: Any = field(default=get_p_time_fn("wang"))
+    p_moist_fn: Any = field(default=get_p_moisture_fn("trucchia"))
 
     # scheduler object
     scheduler: Scheduler = field(init=False)
@@ -195,7 +199,7 @@ class Propagator:
     def compute_stats(
         self, values: npt.NDArray[np.floating]
     ) -> PropagatorStats:
-        """Compute simple area-based stats and number of active fronts.
+        """Compute simple area-based stats and number of active cells.
 
         Parameters
         ----------
@@ -253,7 +257,7 @@ class Propagator:
             # wind speed is given in km/h
             event.wind_speed = boundary_condition.wind_speed
         if boundary_condition.additional_moisture is not None:
-            # additional moisture is given as % we need to transform it to fraction
+            # additional moisture is given as % > transform in fraction
             event.additional_moisture = (
                 boundary_condition.additional_moisture / 100.0
             )
