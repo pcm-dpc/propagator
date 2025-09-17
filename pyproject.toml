@@ -95,6 +95,7 @@ line-length = 79
 select = ["E", "F", "W", "Q", "I"]
 ignore = ["E203", "E501"]
 
+
 [project.scripts]
 propagator = "propagator.cli.main:main"
 
