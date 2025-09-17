@@ -6,8 +6,8 @@ from propagator.core import FUEL_SYSTEM_LEGACY, BoundaryConditions, Propagator
 from propagator.io import PropagatorDataFromGeotiffs
 
 loader = PropagatorDataFromGeotiffs(
-    dem_file="example/dem_clip.tif",
-    veg_file="example/veg_clip.tif",
+    dem_file="example/dem.tif",
+    veg_file="example/fuel.tif",
 )
 
 # Load the data
@@ -32,9 +32,9 @@ boundary_conditions_list: list[BoundaryConditions] = [
     BoundaryConditions(
         time=0,
         ignition_mask=ignition_array,  # type: ignore
-        wind_speed=np.ones(dem.shape) * 10,
-        wind_dir=np.ones(dem.shape) * 180,
-        moisture=np.ones(dem.shape) * 0.05,
+        wind_speed=np.ones(dem.shape) * 10,  # km/h
+        wind_dir=np.ones(dem.shape) * 180,  # degrees from north
+        moisture=np.ones(dem.shape) * 5,  # percentage
     ),
 ]
 for boundary_condition in boundary_conditions_list:
