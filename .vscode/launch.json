@@ -12,14 +12,14 @@
             "console": "integratedTerminal",
             "args": [
                 "--config",
-                "./example/params_ign_polygon.json",
+                "./example/params_ign.json",
                 "--mode", "geotiff",
                 "--output",
                 "./example/output",
                 "--dem",
-                "./example/dem_clip.tif",
+                "./example/dem.tif",
                 "--fuel",
-                "./example/veg_clip.tif"
+                "./example/fuel.tif"
             ],
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
