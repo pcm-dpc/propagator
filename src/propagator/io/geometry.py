@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import re
 from enum import Enum
 from typing import List, Optional, Sequence, Tuple, Union
@@ -112,28 +111,25 @@ class GeoPoint(GeometryBase):
 class GeoLine(GeometryBase):
     kind: GeometryKind = GeometryKind.LINE
 
-    @model_validator(mode="before")
-    @classmethod
-    def _check_line(cls, data: dict):
-        if len(data["xs"]) < 2:
-            raise ValueError("Line must have at least 2 points")
-        return data
+    # @model_validator(mode="after")
+    # def _check_line(self) -> "GeoLine":
+    #     return self
 
 
 class GeoPolygon(GeometryBase):
     kind: GeometryKind = GeometryKind.POLYGON
 
-    @model_validator(mode="before")
-    @classmethod
-    def _check_poly(cls, data):
-        if len(data["xs"]) < 4:  # because the polygon must be closed
-            raise ValueError("Polygon must have at least 4 points")
-        if not (
-            math.isclose(data["xs"][0], data["xs"][-1])
-            and math.isclose(data["ys"][0], data["ys"][-1])
-        ):
-            raise ValueError("Polygon must be closed")
-        return data
+    # @model_validator(mode="before")
+    # @classmethod
+    # def _check_poly(cls, data):
+    #     if len(data["xs"]) < 4:  # because the polygon must be closed
+    #         raise ValueError("Polygon must have at least 4 points")
+    #     if not (
+    #         math.isclose(data["xs"][0], data["xs"][-1])
+    #         and math.isclose(data["ys"][0], data["ys"][-1])
+    #     ):
+    #         raise ValueError("Polygon must be closed")
+    #     return data
 
 
 # super-class for all geometry types
