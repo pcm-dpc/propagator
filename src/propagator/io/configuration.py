@@ -16,6 +16,7 @@ from pydantic import (
     model_validator,
 )
 
+from propagator.core.constants import CELLSIZE, REALIZATIONS
 from propagator.core.models import BoundaryConditions
 
 # ---- project utils ----------------------------------------------------------
@@ -27,7 +28,6 @@ from propagator.core.numba import (
     get_p_moisture_fn,
     get_p_time_fn,
 )
-from propagator.core.constants import REALIZATIONS, CELLSIZE
 from propagator.core.numba.models import FuelSystem
 from propagator.io.boundary_conditions import TimedInput
 from propagator.io.geo import GeographicInfo
@@ -74,8 +74,7 @@ class PropagatorConfigurationLegacy(BaseModel):
         description="Export run logs",
     )
     realizations: int = Field(
-        REALIZATIONS, ge=1,
-        description="Number of realizations"
+        REALIZATIONS, ge=1, description="Number of realizations"
     )
     init_date: datetime = Field(
         default_factory=datetime.now,
