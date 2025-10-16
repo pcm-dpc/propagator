@@ -32,18 +32,44 @@ class UpdateBatch:
     rows: npt.NDArray[np.integer] = field(
         default_factory=lambda: np.empty((0,), dtype=np.int32)
     )
+
     cols: npt.NDArray[np.integer] = field(
         default_factory=lambda: np.empty((0,), dtype=np.int32)
     )
+
     realizations: npt.NDArray[np.integer] = field(
         default_factory=lambda: np.empty((0,), dtype=np.int32)
     )
+
     rates_of_spread: npt.NDArray[np.float32] = field(
         default_factory=lambda: np.empty((0,), dtype=np.float32)
     )
+
     fireline_intensities: npt.NDArray[np.float32] = field(
         default_factory=lambda: np.empty((0,), dtype=np.float32)
     )
+
+    bbox: Optional[tuple[int, int, int, int]] = field(init=False, default=None)
+
+    def __post_init__(self):
+        n = len(self.rows)
+        if not (
+            len(self.cols) == n
+            and len(self.realizations) == n
+            and len(self.rates_of_spread) == n
+            and len(self.fireline_intensities) == n
+        ):
+            raise ValueError("All input arrays must have the same length")
+
+        if n == 0:
+            self.bbox = None
+            return
+
+        r0 = int(np.min(self.rows))
+        c0 = int(np.min(self.cols))
+        r1 = int(np.max(self.rows))
+        c1 = int(np.max(self.cols))
+        self.bbox = (r0, c0, r1, c1)
 
     def extend(self, other: "UpdateBatch") -> None:
         self.rows = np.concatenate([self.rows, other.rows])
@@ -56,6 +82,22 @@ class UpdateBatch:
         )
         self.fireline_intensities = np.concatenate(
             [self.fireline_intensities, other.fireline_intensities]
+        )
+
+        if self.bbox is None:
+            self.bbox = other.bbox
+            return
+
+        if other.bbox is None:
+            return
+
+        r0, c0, r1, c1 = self.bbox
+        or0, oc0, or1, oc1 = other.bbox
+        self.bbox = (
+            min(r0, or0),
+            min(c0, oc0),
+            max(r1, or1),
+            max(c1, oc1),
         )
 
 

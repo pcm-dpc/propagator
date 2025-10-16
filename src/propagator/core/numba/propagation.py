@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-from numba import jit
+from numba import jit  # type: ignore
 from numpy.random import normal, poisson, random, uniform
 
 from propagator.core.constants import NO_FUEL
@@ -45,19 +45,13 @@ NEIGHBOURS = np.array(
         (1, 1),
     ]
 )
-NEIGHBOURS_DISTANCE = np.array([1.414, 1, 1.414, 1, 1, 1.414, 1, 1.414])
-NEIGHBOURS_ANGLE = np.array(
-    [
-        np.pi * 3 / 4,
-        np.pi / 2,
-        np.pi / 4,
-        np.pi,
-        0,
-        -np.pi * 3 / 4,
-        -np.pi / 2,
-        -np.pi / 4,
-    ]
-)
+# calculate the distance to the neighbours in a lattice from NEIGHBOURS
+NEIGHBOURS_DISTANCE = np.sqrt(NEIGHBOURS[:, 0] ** 2 + NEIGHBOURS[:, 1] ** 2)
+# calculate the angle to the neighbours in a lattice from NEIGHBOURS using meteorological convention
+# 0 is north->south, pi/2 is east->west
+NEIGHBOURS_ANGLE = (
+    np.arctan2(NEIGHBOURS[:, 1], -NEIGHBOURS[:, 0]) + np.pi
+) % (2 * np.pi)
 
 
 @jit(cache=True)
@@ -71,9 +65,9 @@ def fire_spotting(
     Parameters
     ----------
     angle : float
-        The angle of the ember's trajectory (radians between [-π, π], 0 is east->west)
+        The angle of the ember's trajectory (clockwise radians, 0 is north -> south)
     w_dir : float
-        The wind direction (radians between [-π, π], 0 is east->west)
+        The wind direction (clockwise radians, 0 is north -> south)
     w_speed : float
         The wind speed (km/h)
 
@@ -124,7 +118,7 @@ def compute_spotting(
     fire : npt.NDArray[np.int8]
         The fire state array
     wind_dir : float
-        The wind direction (radians between [-π, π], 0 is east->west)
+        The wind direction (clockwise radians, 0 is north -> south)
     wind_speed : float
         The wind speed (km/h)
     fuels : FuelSystem
@@ -138,7 +132,8 @@ def compute_spotting(
     """
 
     # calculate number of embers per emitter > Poisson distribution
-    spotting_updates = []
+    # let numba assign the type
+    spotting_updates = []  # type: ignore
 
     num_embers = poisson(LAMBDA_SPOTTING)
 
@@ -230,11 +225,11 @@ def calculate_fire_behavior(
     dist : float
         The distance to the target cell (m).
     angle : float
-        The angle to the target cell (radians between [-π, π], 0 is east->west).
+        The angle to the target cell (clockwise radians, 0 is north -> south).
     moisture : float
         The moisture content of the fuel (fraction).
     w_dir : float
-        The wind direction (radians between [-π, π], 0 is east->west).
+        The wind direction (clockwise radians, 0 is north -> south).
     w_speed : float
         The wind speed (km/h).
     p_time_fn: Any
@@ -329,7 +324,9 @@ def single_cell_updates(
     list[tuple[int, int, int, float, float]]
         A list of fire spread updates (transition_times, rows, cols, rates_of_spread, fireline_intensities)
     """
-    fire_spread_updates = []
+
+    # let numba assign the type
+    fire_spread_updates = []  # type: ignore
 
     dem_from = dem[row, col]
     veg_from = veg[row, col]
@@ -347,6 +344,13 @@ def single_cell_updates(
     ):
         row_to = row + neighbour[0]
         col_to = col + neighbour[1]
+
+        # check if the neighbour is within the grid, otherwise discard
+        if row_to < 0 or row_to >= fire.shape[0]:
+            continue
+        if col_to < 0 or col_to >= fire.shape[1]:
+            continue
+
         veg_to = veg[row_to, col_to]
         dist_to = dist_to_lattice * cellsize
 

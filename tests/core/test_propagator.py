@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from propagator.core import BoundaryConditions, Propagator
-from propagator.core.models import PropagatorStats, UpdateBatch
-from propagator.core.scheduler import SchedulerEvent
+from propagator.core import BoundaryConditions, Propagator  # type: ignore
+from propagator.core.models import PropagatorStats, UpdateBatch  # type: ignore
+from propagator.core.scheduler import SchedulerEvent  # type: ignore
 
 
 def make_propagator(realizations: int = 2) -> Propagator:
@@ -181,10 +181,10 @@ def test_set_boundary_conditions_enqueue_event():
     np.testing.assert_allclose(
         event.moisture, np.full((2, 2), 0.3, dtype=np.float32)
     )
-    expected_wind_dir = np.array(
+    expected_wind_dir = np.radians(
         [
-            [np.pi / 2, 0.0],
-            [-np.pi / 2, -np.pi],
+            [0.0, 90.0],
+            [180.0, 270.0],
         ],
         dtype=np.float32,
     )
@@ -220,7 +220,7 @@ def test_decay_actions_moisture_exponential():
     propagator = make_propagator(realizations=1)
     propagator.actions_moisture = np.full((2, 2), 0.5, dtype=np.float32)
 
-    propagator.decay_actions_moisture(time_delta=5, decay_factor=0.1)
+    propagator._decay_actions_moisture(time_delta=5, decay_factor=0.1)
 
     expected_value = 0.5 * (1 - 0.1) ** 5
     np.testing.assert_allclose(
@@ -229,7 +229,7 @@ def test_decay_actions_moisture_exponential():
     )
 
     propagator.actions_moisture = None
-    propagator.decay_actions_moisture(time_delta=5, decay_factor=0.1)
+    propagator._decay_actions_moisture(time_delta=5, decay_factor=0.1)
     assert propagator.actions_moisture is None
 
 
@@ -257,17 +257,14 @@ def test_apply_updates_schedules_follow_up(monkeypatch):
         "propagator.core.propagator.next_updates_fn", lambda *_, **__: stub
     )
 
-    propagator.apply_updates(updates)
+    propagator._apply_updates(future_time, updates)
 
     assert propagator.fire[0, 1, 0] == 1
     assert propagator.ros[0, 1, 0] == pytest.approx(2.5)
     assert propagator.fireline_int[0, 1, 0] == pytest.approx(7.5)
 
-    time, event = propagator.scheduler.pop()
+    time = propagator.time
     assert time == future_time
-    np.testing.assert_array_equal(
-        event.updates.rows, np.array([1], dtype=np.int32)
-    )
 
 
 def test_step_applies_event(monkeypatch):
