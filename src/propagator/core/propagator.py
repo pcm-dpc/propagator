@@ -93,8 +93,8 @@ class Propagator:
 
     # simulation settings
     cellsize: float = field(default=CELLSIZE)
-    do_spotting: bool = False
-    realizations: int = REALIZATIONS
+    do_spotting: bool = field(default=False)
+    realizations: int = field(default=REALIZATIONS)
 
     # selected simulation functions
     p_time_fn: Any = field(default=get_p_time_fn(ROS_DEFAULT))
@@ -387,13 +387,16 @@ class Propagator:
         Decay the actions moisture over time.
 
         Args:
-            time_delta (int): Elapsed simulation time since last step.
-            decay_factor (float): Per-unit-time fractional decay in [0, 1].
+            time_delta (int): Elapsed simulation time since last step (seconds).
+            decay_factor (float): Per-minute fractional decay in [0, 1].
         """
         if self.actions_moisture is None:
             return
         k = np.clip(decay_factor, 0, 1)
-        self.actions_moisture *= (1 - k) ** max(time_delta, 0)
+        elapsed_units = max(time_delta / 60.0, 0.0)
+        if elapsed_units == 0:
+            return
+        self.actions_moisture *= (1 - k) ** elapsed_units
 
     def _get_moisture(self) -> npt.NDArray[np.floating]:
         """
