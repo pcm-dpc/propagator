@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import List, Optional, Tuple
+import pytz
 
 import numpy as np
 from pydantic import (
@@ -48,8 +49,8 @@ class PropagatorConfigurationLegacy(BaseModel):
         None, description="Name of the simulation (optional)"
     )
     init_date: datetime = Field(
-        default_factory=datetime.now,
-        description="Datetime of the simulated event",
+        default_factory=lambda: datetime.now(tz=pytz.UTC),
+        description="Datetime of the simulated event [UTC]",
     )
     time_limit: int = Field(
         24 * 3600, gt=0, description="Simulation limit [seconds]"
@@ -99,7 +100,7 @@ class PropagatorConfigurationLegacy(BaseModel):
             fmt_ok = ("%Y%m%d%H%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S")
             for fmt in fmt_ok:
                 try:
-                    return datetime.strptime(v, fmt)
+                    return pytz.UTC.localize(datetime.strptime(v, fmt))
                 except ValueError:
                     continue
             # if no format matched, raise error
