@@ -8,8 +8,8 @@ from propagator.core import (  # type: ignore
     Propagator,
 )
 
-veg = np.full((200, 200), 5, dtype=np.int32)
-dem = np.zeros((200, 200), dtype=np.float32)
+veg = np.full((2000, 2000), 5, dtype=np.int32)
+dem = np.zeros((2000, 2000), dtype=np.float32)
 
 simulator = Propagator(
     dem=dem,
@@ -21,7 +21,9 @@ simulator = Propagator(
 )
 
 ignition_array = np.zeros(dem.shape, dtype=np.uint8)
-ignition_array[100:101, 100:101] = 1
+# set central pixel as ignition point
+center_x, center_y = dem.shape[0] // 2, dem.shape[1] // 2
+ignition_array[center_x, center_y] = 1
 
 
 boundary_conditions_list: list[BoundaryConditions] = [
