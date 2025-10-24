@@ -77,6 +77,11 @@ class PropagatorCLILegacy(BaseSettings):
         description="Export run logs",
     )
 
+    ignore_out_of_bounds: CliImplicitFlag[bool] = Field(
+        False,
+        description="Continue simulation when reaching bounds.",
+    )
+
     # Quiet mode to suppress console output, set to true when --quiet is passed
     verbose: CliImplicitFlag[bool] = Field(
         False,
@@ -283,7 +288,7 @@ def main() -> None:
         realizations=cfg.realizations,
         fuels=fuel_system,
         do_spotting=cfg.do_spotting,
-        out_of_bounds_mode="raise",
+        out_of_bounds_mode="ignore" if cli.ignore_out_of_bounds else "raise",
         p_time_fn=cfg.p_time_fn if cfg.p_time_fn is not None else None,
         p_moist_fn=cfg.p_moist_fn if cfg.p_moist_fn is not None else None,
     )
