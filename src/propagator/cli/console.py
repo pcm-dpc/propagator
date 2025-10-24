@@ -138,6 +138,7 @@ def status_propagator_msg(
     init_date: datetime,
     time: int,
     stats: PropagatorStats,
+    *,
     verbose: bool = False,
 ) -> None:
     """
