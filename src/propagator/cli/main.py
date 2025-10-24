@@ -316,10 +316,14 @@ def main() -> None:
         finally:
             if simulator.time % cfg.time_resolution == 0:
                 output = simulator.get_output()
+
                 status_propagator_msg(
-                    cfg.init_date, int(simulator.time), output.stats
+                    cfg.init_date,
+                    simulator.time,
+                    output.stats,
+                    cli.verbose,
                 )
-                # Save the output to the specified folder
+
                 writer.write_output(output)
 
         if simulator.time > cfg.time_limit:

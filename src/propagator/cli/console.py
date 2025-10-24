@@ -135,7 +135,10 @@ def error_msg(message: str) -> None:
 
 
 def status_propagator_msg(
-    init_date: datetime, time: int, stats: PropagatorStats
+    init_date: datetime,
+    time: int,
+    stats: PropagatorStats,
+    verbose: bool = False,
 ) -> None:
     """
     Print a one-line status message with current time and stats.
@@ -156,10 +159,13 @@ def status_propagator_msg(
         f"Date: {date_str} | "
         f"Active: {stats.n_active:>3} | "
         f"Mean area: {(stats.area_mean / 10000):>7.2f} ha | "
-        f"Area 50%: {(stats.area_50 / 10000):>7.2f} ha | "
-        f"Area 75%: {(stats.area_75 / 10000):>7.2f} ha | "
-        f"Area 90%: {(stats.area_90 / 10000):>7.2f} ha"
     )
+    if verbose:
+        msg += (
+            f"Area 50%: {(stats.area_50 / 10000):>7.2f} ha | "
+            f"Area 75%: {(stats.area_75 / 10000):>7.2f} ha | "
+            f"Area 90%: {(stats.area_90 / 10000):>7.2f} ha"
+        )
     get_console().print(msg)
 
 
