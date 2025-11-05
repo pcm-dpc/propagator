@@ -23,15 +23,13 @@ simulator = Propagator(
     out_of_bounds_mode="raise",
 )
 
-ignition_array = np.zeros(dem.shape, dtype=np.uint8)
 # set central pixel as ignition point
 center_x, center_y = dem.shape[0] // 2, dem.shape[1] // 2
-ignition_array[center_x, center_y] = 1
 
 
 boundary_condition = BoundaryConditions(
     time=0,
-    ignitions=ignition_array,  # [(center_x, center_y)],  # type: ignore
+    ignitions=[(center_x, center_y)],
     wind_speed=40.0,  # km/h
     wind_dir=90.0,  # degrees from north
     moisture=0.0,  # percentage
