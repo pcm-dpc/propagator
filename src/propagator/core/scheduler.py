@@ -6,6 +6,7 @@ events, pop the earliest batch, and inspect active realizations.
 
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass, field
 from typing import Dict, Iterator, List, Optional, Tuple
 
@@ -68,17 +69,46 @@ class SchedulerEvent:
 
 @dataclass(frozen=True)
 class SortedDict:
-    """Represents a sorted dictionary for scheduling events."""
+    """Sorted dictionary optimized for time-ordered event scheduling.
 
+    This data structure maintains events in sorted order by time (key) while
+    allowing O(1) lookup and efficient insertion. It's specifically optimized
+    for the common pattern of:
+    1. Inserting events at various future times
+    2. Always popping the earliest (minimum) event
+
+    Performance characteristics:
+    - Insertion: O(n) with bisect.insort vs O(n log n) with naive sort
+    - Lookup: O(1) via dict
+    - Pop earliest: O(1) via list indexing
+    - Memory: O(n) for both dict and sorted list
+
+    The frozen=True decorator prevents accidental modification of the
+    data structure internals, enforcing use through the defined interface.
+    """
+
+    # Internal storage: dict for fast lookup, list for sorted order
     _data: Dict[int, SchedulerEvent] = field(
         default_factory=dict, init=False, repr=False
     )
+    # Sorted list of keys (times) maintained in ascending order
     _order: List[int] = field(default_factory=list, init=False, repr=False)
 
     def __setitem__(self, key: int, value: SchedulerEvent) -> None:
+        """Insert or update an event at a given time.
+
+        OPTIMIZATION: Uses bisect.insort for O(n) insertion into sorted list
+        instead of append + sort which would be O(n log n). This matters
+        because push_updates is called for every burning cell at every time step.
+
+        The 'if key not in self._order' check prevents duplicate keys in the
+        sorted list when updating an existing time slot.
+        """
         self._data[key] = value
-        self._order.append(key)
-        self._order.sort()
+        if key not in self._order:
+            # Binary search to find insertion point, then insert
+            # Maintains sorted order without full resort
+            bisect.insort(self._order, key)
 
     def __getitem__(self, key: int) -> SchedulerEvent:
         return self._data[key]
@@ -137,11 +167,39 @@ class Scheduler:
     # --- Basic queue ops -----------------------------------------------------
 
     def push_updates(self, updates: UpdateBatchWithTime) -> None:
+        """Add a batch of time-stamped updates to the scheduler.
+
+        This is the HOT PATH of the simulation - called once per step with
+        all new fire spread updates. Optimizations here have outsized impact.
+
+        OPTIMIZATION NOTES:
+        1. split_by_time() creates separate UpdateBatch per time value
+           - Fast path when all updates at same time (common case)
+           - Lazy bbox calculation avoids min/max overhead
+
+        2. SortedDict uses bisect.insort() for O(n) insertion vs O(n log n)
+           - Critical because we insert many events per step
+
+        3. extend() merges updates efficiently without redundant bbox calculation
+
+        The flow is:
+        UpdateBatchWithTime -> split by time -> UpdateBatch per time slot
+                            -> merge into existing events or create new ones
+                            -> bisect.insort into sorted event queue
+
+        Parameters
+        ----------
+        updates : UpdateBatchWithTime
+            Batch of updates with associated ignition times
+        """
         event: SchedulerEvent | None
+        # Split updates by time (optimized - see split_by_time comments)
         updates_at_time_dict = updates.split_by_time()
 
+        # Merge updates into existing time slots or create new ones
         for time, update in updates_at_time_dict.items():
             if time in self._queue:
+                # Time slot exists - merge updates via extend()
                 event = self._queue.get(time)
             else:
                 event = SchedulerEvent()

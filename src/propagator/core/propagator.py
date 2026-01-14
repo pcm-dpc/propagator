@@ -473,7 +473,7 @@ class Propagator:
 
     def _check_out_of_bounds(self, updates: UpdateBatch) -> None:
         # check that all updates are within bounds
-        bbox = updates.bbox
+        bbox = updates.get_bbox()
         if bbox is None:
             return
 
