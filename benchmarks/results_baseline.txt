@@ -1,0 +1,67 @@
+<frozen runpy>:128: RuntimeWarning: 'benchmarks.benchmark_core' found in sys.modules after import of package 'benchmarks', but prior to execution of 'benchmarks.benchmark_core'; this may result in unpredictable behaviour
+================================================================================
+PROPAGATOR PERFORMANCE BENCHMARK SUITE (10X SCALE)
+================================================================================
+
+Note: Benchmarks exclude JIT compilation time via warm-up runs
+Warning: Large grids/realizations - this will take significant time!
+================================================================================
+
+1. LARGE SCALE - Basic spread (10x baseline)
+--------------------------------------------------------------------------------
+basic_spread_no_spotting
+  Grid: 5000x5000, Realizations: 100
+  Total time: 8.151s, Steps: 33776, Time/step: 0.0002s
+  Burned cells: 42720
+
+2. SCALING - Realizations (large grid)
+--------------------------------------------------------------------------------
+   10 realizations: 1.346s total, 0.0001s/step, 14824 steps
+   25 realizations: 1.792s total, 0.0001s/step, 15385 steps
+   50 realizations: 2.213s total, 0.0001s/step, 15604 steps
+  100 realizations: 2.686s total, 0.0002s/step, 15773 steps
+
+3. SCALING - Grid size (many realizations)
+--------------------------------------------------------------------------------
+  1000x1000: 2.173s total, 0.0001s/step, 15601 steps
+  3000x3000: 2.161s total, 0.0001s/step, 15570 steps
+  5000x5000: 2.219s total, 0.0001s/step, 15628 steps
+
+4. HETEROGENEOUS - Patchy fuel distribution
+--------------------------------------------------------------------------------
+heterogeneous_fuels
+  Grid: 2000x2000, Realizations: 50
+  Total time: 0.036s, Steps: 896, Time/step: 0.0000s
+  Burned cells: 209
+
+5. TERRAIN - Complex topography with slopes
+--------------------------------------------------------------------------------
+with_terrain
+  Grid: 2000x2000, Realizations: 50
+  Total time: 1.224s, Steps: 6101, Time/step: 0.0002s
+  Burned cells: 3342
+
+6. VARIABLE WIND - Spatially varying wind field
+--------------------------------------------------------------------------------
+variable_wind
+  Grid: 2000x2000, Realizations: 50
+  Total time: 1.032s, Steps: 5685, Time/step: 0.0002s
+  Burned cells: 1653
+
+7. COMPONENT PROFILING - Large scale (average per step)
+--------------------------------------------------------------------------------
+  total               : 0.0001s (100.0%)
+  calculate_next      : 0.0001s ( 86.3%)
+  filter_valid        : 0.0000s (  9.3%)
+  apply_updates       : 0.0000s (  2.9%)
+  scheduler_pop       : 0.0000s (  0.9%)
+
+8. SPOTTING - Impact at scale
+--------------------------------------------------------------------------------
+  Without spotting: 0.514s
+  With spotting:    0.532s
+  Overhead:         3.5%
+
+================================================================================
+BENCHMARK SUITE COMPLETE
+================================================================================
