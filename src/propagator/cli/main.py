@@ -309,22 +309,22 @@ def main() -> None:
             break
 
         try:
-            simulator.step()
+            simulator.step(seconds=cfg.time_resolution)
         except PropagatorOutOfBoundsError as e:
             warn(f"Simulation stopped due to PropagatorOutOfBoundsError: {e}")
             break
+
         finally:
-            if simulator.time % cfg.time_resolution == 0:
-                output = simulator.get_output()
+            output = simulator.get_output()
 
-                status_propagator_msg(
-                    cfg.init_date,
-                    output.time,
-                    output.stats,
-                    verbose=cli.verbose,
-                )
+            status_propagator_msg(
+                cfg.init_date,
+                output.time,
+                output.stats,
+                verbose=cli.verbose,
+            )
 
-                writer.write_output(output)
+            writer.write_output(output)
 
         if simulator.time > cfg.time_limit:
             break
