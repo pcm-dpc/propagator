@@ -122,7 +122,7 @@ def test_compute_stats_counts_active_and_thresholds():
         rates_of_spread=np.array([0.3, 0.4], dtype=np.float32),
         fireline_intensities=np.array([1.0, 2.0], dtype=np.float32),
     )
-    propagator.scheduler.add_event(1, SchedulerEvent(updates=updates))
+    propagator._schedule_ignitions(1, updates)
 
     values = np.array(
         [
@@ -233,7 +233,7 @@ def test_decay_actions_moisture_exponential():
     assert propagator.actions_moisture is None
 
 
-def test_apply_updates_schedules_follow_up(monkeypatch):
+def test_apply_updates_updates_state():
     propagator = make_propagator(realizations=1)
 
     updates = UpdateBatch(
@@ -245,19 +245,7 @@ def test_apply_updates_schedules_follow_up(monkeypatch):
     )
 
     future_time = 5
-    stub = (
-        np.array([future_time], dtype=np.int32),
-        np.array([1], dtype=np.int32),
-        np.array([0], dtype=np.int32),
-        np.array([0], dtype=np.int32),
-        np.array([0.4], dtype=np.float32),
-        np.array([12.0], dtype=np.float32),
-    )
-    monkeypatch.setattr(
-        "propagator.core.propagator.next_updates_fn", lambda *_, **__: stub
-    )
-
-    propagator._apply_updates(future_time, updates)
+    propagator._apply_updates(updates, new_time=future_time)
 
     assert propagator.fire[0, 1, 0] == 1
     assert propagator.ros[0, 1, 0] == pytest.approx(2.5)
@@ -267,21 +255,9 @@ def test_apply_updates_schedules_follow_up(monkeypatch):
     assert time == future_time
 
 
-def test_step_applies_event(monkeypatch):
+def test_step_applies_event():
     propagator = make_propagator(realizations=1)
     propagator.actions_moisture = np.full((2, 2), 0.5, dtype=np.float32)
-
-    stub = (
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.float32),
-        np.empty((0,), dtype=np.float32),
-    )
-    monkeypatch.setattr(
-        "propagator.core.propagator.next_updates_fn", lambda *_, **__: stub
-    )
 
     event = SchedulerEvent(
         moisture=np.full((2, 2), 0.2, dtype=np.float32),

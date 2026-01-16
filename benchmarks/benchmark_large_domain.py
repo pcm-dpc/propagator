@@ -50,10 +50,11 @@ def benchmark_large_domain():
     # Warmup to trigger JIT compilation
     print("\nWarming up (JIT compilation)...")
     warmup_start = time.perf_counter()
-    for _ in range(5):
-        if simulator.next_time() is None:
-            break
-        simulator.step()
+    # for _ in range(5):
+    #     if simulator.next_time() is None:
+    #         break
+    simulator.step(seconds=60)
+
     warmup_time = time.perf_counter() - warmup_start
     print(f"Warmup completed in {warmup_time:.2f}s at t={simulator.time}s")
 
@@ -71,16 +72,16 @@ def benchmark_large_domain():
         if next_time is None:
             print("No more events in queue")
             break
-        simulator.step()
+        simulator.step(seconds=3600)
         step_count += 1
 
         # Progress reporting every 100 steps
-        if step_count % 1000 == 0:
-            elapsed = time.perf_counter() - benchmark_start
-            print(
-                f"  Step {step_count}: sim_time={simulator.time:.1f}s, "
-                f"real_time={elapsed:.2f}s"
-            )
+        # if step_count % 1000 == 0:
+        elapsed = time.perf_counter() - benchmark_start
+        print(
+            f"  Step {step_count}: sim_time={simulator.time:.1f}s, "
+            f"real_time={elapsed:.2f}s"
+        )
 
     benchmark_time = time.perf_counter() - benchmark_start
 
@@ -94,9 +95,16 @@ def benchmark_large_domain():
     print(f"Steps executed:       {step_count}")
     print(f"Simulation time:      {simulator.time:.1f}s")
     print(f"Benchmark duration:   {benchmark_time:.2f}s")
-    print(f"Steps per second:     {step_count / benchmark_time:.2f}")
-    print(f"Sim time per step:    {simulator.time / step_count:.2f}s")
-    print(f"Real time per step:   {benchmark_time / step_count * 1000:.2f}ms")
+    if step_count == 0:
+        print("Steps per second:     n/a (no steps executed)")
+        print("Sim time per step:    n/a (no steps executed)")
+        print("Real time per step:   n/a (no steps executed)")
+    else:
+        print(f"Steps per second:     {step_count / benchmark_time:.2f}")
+        print(f"Sim time per step:    {simulator.time / step_count:.2f}s")
+        print(
+            f"Real time per step:   {benchmark_time / step_count * 1000:.2f}ms"
+        )
 
     # Memory estimate
     memory_mb = (
@@ -112,7 +120,9 @@ def benchmark_large_domain():
         "steps": step_count,
         "sim_time": simulator.time,
         "benchmark_time": benchmark_time,
-        "steps_per_second": step_count / benchmark_time,
+        "steps_per_second": (
+            step_count / benchmark_time if step_count > 0 else 0.0
+        ),
     }
 
 

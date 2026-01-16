@@ -1,3 +1,4 @@
+from .front_tracking import advance_front_until
 from .functions import (
     MoistureModel,
     RateOfSpreadModel,
@@ -14,6 +15,7 @@ __all__ = [
     "get_p_time_fn",
     "MoistureModel",
     "RateOfSpreadModel",
+    "advance_front_until",
     "next_updates_fn",
     "FuelSystem",
 ]

@@ -43,7 +43,7 @@ while simulator.time < 3600 * 24:
     if next_time is None:
         break
     try:
-        simulator.step()
+        simulator.step(seconds=3600)
     except PropagatorOutOfBoundsError:
         print("Fire reached out of bounds area, stopping simulation.")
         break
