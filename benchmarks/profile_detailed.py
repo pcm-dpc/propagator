@@ -39,7 +39,7 @@ def profile_simulation():
     for _ in range(10):
         if simulator.next_time() is None:
             break
-        simulator.step()
+        simulator.step(seconds=3600)
 
     print(f"Warmup complete, starting profiler at {simulator.time}s...")
     profiler = Profiler()
@@ -52,7 +52,7 @@ def profile_simulation():
         next_time = simulator.next_time()
         if next_time is None:
             break
-        simulator.step()
+        simulator.step(seconds=3600)
         step_count += 1
 
     profiler.stop()

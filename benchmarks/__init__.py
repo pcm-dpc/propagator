@@ -1,5 +1,6 @@
 """Benchmark suite for propagator performance testing."""
 
+from .benchmark import LargeDomainResult, run_large_domain
 from .benchmark_core import (
     BenchmarkResult,
     benchmark_basic_spread,
@@ -22,4 +23,6 @@ __all__ = [
     "benchmark_with_terrain",
     "profile_step_components",
     "run_benchmark_suite",
+    "LargeDomainResult",
+    "run_large_domain",
 ]
