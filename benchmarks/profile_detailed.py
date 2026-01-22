@@ -46,20 +46,16 @@ def profile_simulation():
     profiler.start()
 
     # Run simulation for limited time
-    step_count = 0
-    max_steps = 500
-    while simulator.time < 3600 and step_count < max_steps:
+
+    while simulator.time < 86400:
         next_time = simulator.next_time()
         if next_time is None:
             break
         simulator.step(seconds=3600)
-        step_count += 1
 
     profiler.stop()
 
-    print(
-        f"\nSimulation completed: {step_count} steps, time={simulator.time}s"
-    )
+    print(f"\nSimulation completed: time={simulator.time}s")
     print("\n" + "=" * 80)
     print("PROFILE RESULTS")
     print("=" * 80)
