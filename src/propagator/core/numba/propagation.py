@@ -54,7 +54,7 @@ NEIGHBOURS_ANGLE = (
 ) % (2 * np.pi)
 
 
-@jit(cache=True)
+@jit(cache=False)
 def fire_spotting(
     angle: float,
     w_dir: float,
@@ -202,7 +202,7 @@ def compute_spotting(
     return spotting_updates
 
 
-@jit(cache=True, nopython=True, fastmath=True)
+@jit(cache=False, nopython=True, fastmath=True)
 def calculate_fire_behavior(
     fuel_from: Fuel,
     fuel_to: Fuel,

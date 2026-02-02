@@ -9,7 +9,7 @@ from numba import njit, prange  # type: ignore
 from .propagation import single_cell_updates
 
 
-@njit(cache=True)
+@njit(cache=False)
 def _heap_swap(
     times: npt.NDArray[np.int32],
     rows: npt.NDArray[np.int32],
@@ -26,7 +26,7 @@ def _heap_swap(
     fli[i], fli[j] = fli[j], fli[i]
 
 
-@njit(cache=True)
+@njit(cache=False)
 def _heap_push(
     times: npt.NDArray[np.int32],
     rows: npt.NDArray[np.int32],
@@ -56,7 +56,7 @@ def _heap_push(
     return size + 1
 
 
-@njit(cache=True)
+@njit(cache=False)
 def _heap_pop_min(
     times: npt.NDArray[np.int32],
     rows: npt.NDArray[np.int32],
