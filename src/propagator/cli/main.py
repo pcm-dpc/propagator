@@ -249,15 +249,28 @@ def main() -> None:
     geo_info = loader.get_geo_info()
     dst_crs = CRS.from_epsg(4326)
 
+    raster_variables_mapping = {
+        "fire_probability": lambda output: output.fire_probability,
+        "fireline_intensity_mean": lambda output: output.fli_mean,
+        "fireline_intensity_max": lambda output: output.fli_max,
+        "ros_mean": lambda output: output.ros_mean,
+        "ros_max": lambda output: output.ros_max,
+    }
+    if cfg.do_spotting:
+        raster_variables_mapping.update(
+            {
+                "spotting_generation_probability": (
+                    lambda output: output.spotting_generation_probability
+                ),
+                "spotting_receiving_probability": (
+                    lambda output: output.spotting_receiving_probability
+                ),
+            }
+        )
+
     raster_writer = GeoTiffWriter(
         start_date=cfg.init_date,
-        raster_variables_mapping={
-            "fire_probability": lambda output: output.fire_probability,
-            "fireline_intensity_mean": lambda output: output.fli_mean,
-            "fireline_intensity_max": lambda output: output.fli_max,
-            "ros_mean": lambda output: output.ros_mean,
-            "ros_max": lambda output: output.ros_max,
-        },
+        raster_variables_mapping=raster_variables_mapping,
         output_folder=cli.output,
         geo_info=geo_info,
         dst_crs=dst_crs,

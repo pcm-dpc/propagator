@@ -15,7 +15,7 @@ import numpy.typing as npt
 
 # Integer coords array of shape (n, 3). We can’t encode the shape statically
 # with stdlib typing, but we DO lock the dtype to integer families.
-FireBehaviourUpdate = tuple[int, int, int, float, float]
+FireBehaviourUpdate = tuple[int, int, int, float, float, bool]
 
 UpdateBatchTuple = tuple[
     npt.NDArray[np.integer],
@@ -323,6 +323,8 @@ class PropagatorOutput:
 
     time: int  # seconds from simulation start
     fire_probability: npt.NDArray[np.floating]
+    spotting_generation_probability: npt.NDArray[np.floating]
+    spotting_receiving_probability: npt.NDArray[np.floating]
     ros_mean: npt.NDArray[np.floating]
     ros_max: npt.NDArray[np.floating]
     fli_mean: npt.NDArray[np.floating]

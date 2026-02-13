@@ -114,6 +114,8 @@ def advance_front_until(
     veg: npt.NDArray[np.integer],
     dem: npt.NDArray[np.floating],
     fire: npt.NDArray[np.int8],
+    spotting_generation: npt.NDArray[np.bool_],
+    spotting_receiving: npt.NDArray[np.bool_],
     state_ros: npt.NDArray[np.float32],
     state_fli: npt.NDArray[np.float32],
     moisture: npt.NDArray[np.floating],
@@ -123,6 +125,7 @@ def advance_front_until(
     p_time_fn,
     p_moist_fn,
     out_of_bounds: npt.NDArray[np.int8],
+    track_spotting: bool,
 ) -> None:
     n_realizations = sizes.shape[0]
     n_rows = veg.shape[0]
@@ -179,7 +182,12 @@ def advance_front_until(
             )
 
             for update in updates:
-                (delta_time, row_to, col_to, ros_to, fli_to) = update
+                (delta_time, row_to, col_to, ros_to, fli_to, is_spotting) = (
+                    update
+                )
+                if track_spotting and is_spotting:
+                    spotting_generation[row, col, realization] = True
+                    spotting_receiving[row_to, col_to, realization] = True
                 if sizes[realization] >= max_events:
                     overflow[realization] = 1
                     break

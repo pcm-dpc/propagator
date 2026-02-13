@@ -24,6 +24,37 @@ def make_propagator(realizations: int = 2) -> Propagator:
     return propagator
 
 
+def test_spotting_state_allocated_only_when_enabled():
+    base_veg = np.array([[1, 2], [3, 4]], dtype=np.int32)
+    base_dem = np.zeros_like(base_veg, dtype=np.float32)
+
+    no_spotting = Propagator(
+        veg=base_veg,
+        dem=base_dem,
+        realizations=2,
+        do_spotting=False,
+    )
+    assert no_spotting.spotting_generation is None
+    assert no_spotting.spotting_receiving is None
+    np.testing.assert_allclose(
+        no_spotting.compute_spotting_generation_probability(),
+        np.zeros(base_veg.shape, dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        no_spotting.compute_spotting_receiving_probability(),
+        np.zeros(base_veg.shape, dtype=np.float32),
+    )
+
+    with_spotting = Propagator(
+        veg=base_veg,
+        dem=base_dem,
+        realizations=2,
+        do_spotting=True,
+    )
+    assert with_spotting.spotting_generation is not None
+    assert with_spotting.spotting_receiving is not None
+
+
 def test_compute_fire_probability_and_means():
     propagator = make_propagator(realizations=2)
 
@@ -48,6 +79,20 @@ def test_compute_fire_probability_and_means():
         ],
         dtype=np.float32,
     )
+    propagator.spotting_generation = np.array(
+        [
+            [[1, 0], [0, 0]],
+            [[1, 1], [0, 0]],
+        ],
+        dtype=np.int8,
+    )
+    propagator.spotting_receiving = np.array(
+        [
+            [[0, 0], [1, 1]],
+            [[0, 1], [0, 0]],
+        ],
+        dtype=np.int8,
+    )
 
     prob = propagator.compute_fire_probability()
     np.testing.assert_allclose(
@@ -56,6 +101,30 @@ def test_compute_fire_probability_and_means():
             [
                 [0.5, 0.5],
                 [1.0, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    spotting_gen_prob = propagator.compute_spotting_generation_probability()
+    np.testing.assert_allclose(
+        spotting_gen_prob,
+        np.array(
+            [
+                [0.5, 0.0],
+                [1.0, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    spotting_recv_prob = propagator.compute_spotting_receiving_probability()
+    np.testing.assert_allclose(
+        spotting_recv_prob,
+        np.array(
+            [
+                [0.0, 1.0],
+                [0.5, 0.0],
             ],
             dtype=np.float32,
         ),
@@ -109,6 +178,31 @@ def test_compute_fire_probability_and_means():
             dtype=np.float32,
         ),
         equal_nan=True,
+    )
+
+
+def test_get_output_includes_spotting_probabilities():
+    propagator = make_propagator(realizations=2)
+    propagator.time = 60
+    propagator.fire = np.array(
+        [[[1, 0], [0, 0]], [[0, 1], [0, 0]]], dtype=np.int8
+    )
+    propagator.spotting_generation = np.array(
+        [[[1, 0], [0, 1]], [[0, 0], [0, 0]]], dtype=np.int8
+    )
+    propagator.spotting_receiving = np.array(
+        [[[0, 1], [0, 0]], [[1, 0], [0, 0]]], dtype=np.int8
+    )
+
+    output = propagator.get_output()
+
+    np.testing.assert_allclose(
+        output.spotting_generation_probability,
+        np.array([[0.5, 0.5], [0.0, 0.0]], dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        output.spotting_receiving_probability,
+        np.array([[0.5, 0.0], [0.5, 0.0]], dtype=np.float32),
     )
 
 

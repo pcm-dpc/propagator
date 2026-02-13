@@ -115,6 +115,8 @@ class Propagator:
     # simulation state
     time: int = field(init=False, default=0)
     fire: npt.NDArray[np.int8] = field(init=False)
+    spotting_generation: npt.NDArray[np.bool_] | None = field(init=False)
+    spotting_receiving: npt.NDArray[np.bool_] | None = field(init=False)
     ros: npt.NDArray[np.float32] = field(init=False)
     fireline_int: npt.NDArray[np.float32] = field(init=False)
     moisture: npt.NDArray[np.floating] = field(init=False)
@@ -151,6 +153,16 @@ class Propagator:
         self._front_sizes = np.zeros((self.realizations,), dtype=np.int32)
         self._front_overflow = np.zeros((self.realizations,), dtype=np.int8)
         self.fire = np.zeros(shape + (self.realizations,), dtype=np.int8)
+        if self.do_spotting:
+            self.spotting_generation = np.zeros(
+                shape + (self.realizations,), dtype=np.bool_
+            )
+            self.spotting_receiving = np.zeros(
+                shape + (self.realizations,), dtype=np.bool_
+            )
+        else:
+            self.spotting_generation = None
+            self.spotting_receiving = None
         self.ros = np.zeros(shape + (self.realizations,), dtype=np.float32)
         self.fireline_int = np.zeros(
             shape + (self.realizations,), dtype=np.float32
@@ -167,6 +179,24 @@ class Propagator:
             2D array with values in [0, 1].
         """
         values = np.mean(self.fire, axis=2).astype(np.float32)
+        return values
+
+    def compute_spotting_generation_probability(
+        self,
+    ) -> npt.NDArray[np.floating]:
+        """Return per-cell spotting generation probability."""
+        if self.spotting_generation is None:
+            return np.zeros(self.veg.shape, dtype=np.float32)
+        values = np.mean(self.spotting_generation, axis=2).astype(np.float32)
+        return values
+
+    def compute_spotting_receiving_probability(
+        self,
+    ) -> npt.NDArray[np.floating]:
+        """Return per-cell spotting receiving probability."""
+        if self.spotting_receiving is None:
+            return np.zeros(self.veg.shape, dtype=np.float32)
+        values = np.mean(self.spotting_receiving, axis=2).astype(np.float32)
         return values
 
     def compute_ros_max(self) -> npt.NDArray[np.floating]:
@@ -307,7 +337,7 @@ class Propagator:
             moisture = upcast_to_ndarray(
                 boundary_condition.moisture, self.dem.shape
             )
-            event.moisture = moisture / 100.0
+            event.moisture = (moisture / 100.0).astype(np.float32, copy=True)
         if boundary_condition.wind_dir is not None:
             # wind direction is given in degrees clockwise, north is 0
             # we need to transform it to radians, counter-clockwise east is 0
@@ -315,18 +345,18 @@ class Propagator:
                 np.radians(boundary_condition.wind_dir), self.dem.shape
             )
 
-            event.wind_dir = wind_dir_radians
+            event.wind_dir = wind_dir_radians.astype(np.float32, copy=True)
         if boundary_condition.wind_speed is not None:
             # wind speed is given in km/h
             wind_speed = upcast_to_ndarray(
                 boundary_condition.wind_speed, self.dem.shape
             )
-            event.wind_speed = wind_speed
+            event.wind_speed = wind_speed.astype(np.float32, copy=True)
         if boundary_condition.additional_moisture is not None:
             # additional moisture is given as % > transform in fraction
             event.additional_moisture = (
                 boundary_condition.additional_moisture / 100.0
-            )
+            ).astype(np.float32, copy=True)
         if boundary_condition.vegetation_changes is not None:
             event.vegetation_changes = boundary_condition.vegetation_changes
 
@@ -414,7 +444,7 @@ class Propagator:
         ros = updates.rates_of_spread
         fireline_intensity = updates.fireline_intensities
 
-        self.fire[rows, cols, realizations] = 1
+        self.fire[rows, cols, realizations] = True
         self.ros[rows, cols, realizations] = ros
         self.fireline_int[rows, cols, realizations] = fireline_intensity
 
@@ -522,7 +552,7 @@ class Propagator:
             return self.moisture
 
         moisture = self.moisture + self.actions_moisture
-        moisture = np.clip(moisture, 0.0, 1.0)
+        moisture = np.clip(moisture, 0.0, 1.0).astype(np.float32, copy=False)
 
         return moisture
 
@@ -604,19 +634,28 @@ class Propagator:
             self._decay_actions_moisture(time_delta)
 
         if scheduler_event.moisture is not None:
-            self.moisture = scheduler_event.moisture
+            self.moisture = scheduler_event.moisture.astype(
+                np.float32, copy=False
+            )
 
         if scheduler_event.additional_moisture is not None:
             if self.actions_moisture is None:
                 self.actions_moisture = np.zeros_like(self.moisture)
             self.actions_moisture += scheduler_event.additional_moisture
             self.actions_moisture = np.clip(self.actions_moisture, 0.0, 1.0)
+            self.actions_moisture = self.actions_moisture.astype(
+                np.float32, copy=False
+            )
 
         if scheduler_event.wind_dir is not None:
-            self.wind_dir = scheduler_event.wind_dir
+            self.wind_dir = scheduler_event.wind_dir.astype(
+                np.float32, copy=False
+            )
 
         if scheduler_event.wind_speed is not None:
-            self.wind_speed = scheduler_event.wind_speed
+            self.wind_speed = scheduler_event.wind_speed.astype(
+                np.float32, copy=False
+            )
 
     def _update_vegetation(self, scheduler_event: SchedulerEvent) -> None:
         if scheduler_event.vegetation_changes is not None:
@@ -699,6 +738,17 @@ class Propagator:
 
         moisture = self._get_moisture()
         out_of_bounds = np.zeros((self.realizations,), dtype=np.int8)
+        dummy_spotting = np.zeros((1, 1, 1), dtype=np.bool_)
+        spotting_generation = (
+            self.spotting_generation
+            if self.spotting_generation is not None
+            else dummy_spotting
+        )
+        spotting_receiving = (
+            self.spotting_receiving
+            if self.spotting_receiving is not None
+            else dummy_spotting
+        )
 
         advance_front_until(
             int(end_time),
@@ -714,6 +764,8 @@ class Propagator:
             self.veg,
             self.dem,
             self.fire,
+            spotting_generation,
+            spotting_receiving,
             self.ros,
             self.fireline_int,
             moisture,
@@ -723,6 +775,7 @@ class Propagator:
             self.p_time_fn,
             self.p_moist_fn,
             out_of_bounds,
+            self.do_spotting,
         )
 
         if int(np.sum(self._front_overflow)) > 0:
@@ -758,6 +811,12 @@ class Propagator:
                 RoS, intensity, stats.
         """
         fire_probability = self.compute_fire_probability()
+        spotting_generation_probability = (
+            self.compute_spotting_generation_probability()
+        )
+        spotting_receiving_probability = (
+            self.compute_spotting_receiving_probability()
+        )
         ros_max = self.compute_ros_max()
         ros_mean = self.compute_ros_mean()
         fireline_intensity_max = self.compute_fireline_int_max()
@@ -767,6 +826,8 @@ class Propagator:
         return PropagatorOutput(
             time=int(self.time),
             fire_probability=fire_probability,
+            spotting_generation_probability=spotting_generation_probability,
+            spotting_receiving_probability=spotting_receiving_probability,
             ros_mean=ros_mean,
             ros_max=ros_max,
             fli_mean=fireline_intensity_mean,
