@@ -117,6 +117,7 @@ class Propagator:
     fire: npt.NDArray[np.int8] = field(init=False)
     spotting_generation: npt.NDArray[np.bool_] | None = field(init=False)
     spotting_receiving: npt.NDArray[np.bool_] | None = field(init=False)
+    arrival_time: npt.NDArray[np.int32] = field(init=False)
     ros: npt.NDArray[np.float32] = field(init=False)
     fireline_int: npt.NDArray[np.float32] = field(init=False)
     moisture: npt.NDArray[np.floating] = field(init=False)
@@ -155,14 +156,17 @@ class Propagator:
         self.fire = np.zeros(shape + (self.realizations,), dtype=np.int8)
         if self.do_spotting:
             self.spotting_generation = np.zeros(
-                shape + (self.realizations,), dtype=np.bool_
+                shape + (self.realizations,), dtype=np.uint32
             )
             self.spotting_receiving = np.zeros(
-                shape + (self.realizations,), dtype=np.bool_
+                shape + (self.realizations,), dtype=np.uint32
             )
         else:
             self.spotting_generation = None
             self.spotting_receiving = None
+        self.arrival_time = np.zeros(
+            shape + (self.realizations,), dtype=np.int32
+        )
         self.ros = np.zeros(shape + (self.realizations,), dtype=np.float32)
         self.fireline_int = np.zeros(
             shape + (self.realizations,), dtype=np.float32
@@ -187,7 +191,12 @@ class Propagator:
         """Return per-cell spotting generation probability."""
         if self.spotting_generation is None:
             return np.zeros(self.veg.shape, dtype=np.float32)
-        values = np.mean(self.spotting_generation, axis=2).astype(np.float32)
+        values = (
+            np.sum(self.spotting_generation, axis=2, dtype=np.float64).astype(
+                np.float32
+            )
+            / self.realizations
+        )
         return values
 
     def compute_spotting_receiving_probability(
@@ -196,7 +205,12 @@ class Propagator:
         """Return per-cell spotting receiving probability."""
         if self.spotting_receiving is None:
             return np.zeros(self.veg.shape, dtype=np.float32)
-        values = np.mean(self.spotting_receiving, axis=2).astype(np.float32)
+        values = (
+            np.sum(self.spotting_receiving, axis=2, dtype=np.float64).astype(
+                np.float32
+            )
+            / self.realizations
+        )
         return values
 
     def compute_ros_max(self) -> npt.NDArray[np.floating]:
@@ -209,6 +223,21 @@ class Propagator:
         """
         RoS_max = self._compute_variable_max(self.ros).astype(np.float32)
         return RoS_max
+
+    def compute_arrival_time_min(self) -> npt.NDArray[np.floating]:
+        """Return per-cell minimum arrival time across realizations."""
+        mask = np.sum(self.fire, axis=2) > 0
+        masked = np.where(
+            self.fire > 0, self.arrival_time, np.iinfo(np.int32).max
+        )
+        min_values = np.min(masked, axis=2).astype(np.float32)
+        min_values[~mask] = 0
+        return min_values
+
+    def compute_arrival_time_mean(self) -> npt.NDArray[np.floating]:
+        """Return per-cell mean arrival time across realizations where burned."""
+        arrival_time_f = self.arrival_time.astype(np.float32)
+        return self._compute_variable_mean(arrival_time_f)
 
     def compute_ros_mean(self) -> npt.NDArray[np.floating]:
         """Return per-cell mean Rate of Spread, ignoring zeros as no-spread.
@@ -445,6 +474,7 @@ class Propagator:
         fireline_intensity = updates.fireline_intensities
 
         self.fire[rows, cols, realizations] = True
+        self.arrival_time[rows, cols, realizations] = int(self.time)
         self.ros[rows, cols, realizations] = ros
         self.fireline_int[rows, cols, realizations] = fireline_intensity
 
@@ -738,7 +768,7 @@ class Propagator:
 
         moisture = self._get_moisture()
         out_of_bounds = np.zeros((self.realizations,), dtype=np.int8)
-        dummy_spotting = np.zeros((1, 1, 1), dtype=np.bool_)
+        dummy_spotting = np.zeros((1, 1, 1), dtype=np.uint32)
         spotting_generation = (
             self.spotting_generation
             if self.spotting_generation is not None
@@ -766,6 +796,7 @@ class Propagator:
             self.fire,
             spotting_generation,
             spotting_receiving,
+            self.arrival_time,
             self.ros,
             self.fireline_int,
             moisture,
@@ -817,6 +848,8 @@ class Propagator:
         spotting_receiving_probability = (
             self.compute_spotting_receiving_probability()
         )
+        min_arrival_time = self.compute_arrival_time_min()
+        mean_arrival_time = self.compute_arrival_time_mean()
         ros_max = self.compute_ros_max()
         ros_mean = self.compute_ros_mean()
         fireline_intensity_max = self.compute_fireline_int_max()
@@ -828,6 +861,8 @@ class Propagator:
             fire_probability=fire_probability,
             spotting_generation_probability=spotting_generation_probability,
             spotting_receiving_probability=spotting_receiving_probability,
+            mean_arrival_time=mean_arrival_time,
+            min_arrival_time=min_arrival_time,
             ros_mean=ros_mean,
             ros_max=ros_max,
             fli_mean=fireline_intensity_mean,

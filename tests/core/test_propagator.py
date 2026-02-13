@@ -79,19 +79,26 @@ def test_compute_fire_probability_and_means():
         ],
         dtype=np.float32,
     )
+    propagator.arrival_time = np.array(
+        [
+            [[10, 0], [0, 20]],
+            [[15, 25], [0, 0]],
+        ],
+        dtype=np.int32,
+    )
     propagator.spotting_generation = np.array(
         [
             [[1, 0], [0, 0]],
             [[1, 1], [0, 0]],
         ],
-        dtype=np.int8,
+        dtype=np.uint32,
     )
     propagator.spotting_receiving = np.array(
         [
             [[0, 0], [1, 1]],
             [[0, 1], [0, 0]],
         ],
-        dtype=np.int8,
+        dtype=np.uint32,
     )
 
     prob = propagator.compute_fire_probability()
@@ -128,6 +135,31 @@ def test_compute_fire_probability_and_means():
             ],
             dtype=np.float32,
         ),
+    )
+
+    min_arrival = propagator.compute_arrival_time_min()
+    np.testing.assert_allclose(
+        min_arrival,
+        np.array(
+            [
+                [10.0, 20.0],
+                [15.0, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    mean_arrival = propagator.compute_arrival_time_mean()
+    np.testing.assert_allclose(
+        mean_arrival,
+        np.array(
+            [
+                [10.0, 20.0],
+                [20.0, np.nan],
+            ],
+            dtype=np.float32,
+        ),
+        equal_nan=True,
     )
 
     ros_max = propagator.compute_ros_max()
@@ -188,10 +220,13 @@ def test_get_output_includes_spotting_probabilities():
         [[[1, 0], [0, 0]], [[0, 1], [0, 0]]], dtype=np.int8
     )
     propagator.spotting_generation = np.array(
-        [[[1, 0], [0, 1]], [[0, 0], [0, 0]]], dtype=np.int8
+        [[[1, 0], [0, 1]], [[0, 0], [0, 0]]], dtype=np.uint32
     )
     propagator.spotting_receiving = np.array(
-        [[[0, 1], [0, 0]], [[1, 0], [0, 0]]], dtype=np.int8
+        [[[0, 1], [0, 0]], [[1, 0], [0, 0]]], dtype=np.uint32
+    )
+    propagator.arrival_time = np.array(
+        [[[5, 0], [0, 0]], [[0, 9], [0, 0]]], dtype=np.int32
     )
 
     output = propagator.get_output()
@@ -203,6 +238,15 @@ def test_get_output_includes_spotting_probabilities():
     np.testing.assert_allclose(
         output.spotting_receiving_probability,
         np.array([[0.5, 0.0], [0.5, 0.0]], dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        output.min_arrival_time,
+        np.array([[5.0, 0.0], [9.0, 0.0]], dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        output.mean_arrival_time,
+        np.array([[5.0, np.nan], [9.0, np.nan]], dtype=np.float32),
+        equal_nan=True,
     )
 
 
@@ -342,6 +386,7 @@ def test_apply_updates_updates_state():
     propagator._apply_updates(updates, new_time=future_time)
 
     assert propagator.fire[0, 1, 0] == 1
+    assert propagator.arrival_time[0, 1, 0] == future_time
     assert propagator.ros[0, 1, 0] == pytest.approx(2.5)
     assert propagator.fireline_int[0, 1, 0] == pytest.approx(7.5)
 

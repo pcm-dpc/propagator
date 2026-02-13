@@ -325,6 +325,8 @@ class PropagatorOutput:
     fire_probability: npt.NDArray[np.floating]
     spotting_generation_probability: npt.NDArray[np.floating]
     spotting_receiving_probability: npt.NDArray[np.floating]
+    mean_arrival_time: npt.NDArray[np.floating]
+    min_arrival_time: npt.NDArray[np.floating]
     ros_mean: npt.NDArray[np.floating]
     ros_max: npt.NDArray[np.floating]
     fli_mean: npt.NDArray[np.floating]

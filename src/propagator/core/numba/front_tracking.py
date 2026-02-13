@@ -116,6 +116,7 @@ def advance_front_until(
     fire: npt.NDArray[np.int8],
     spotting_generation: npt.NDArray[np.bool_],
     spotting_receiving: npt.NDArray[np.bool_],
+    state_arrival_time: npt.NDArray[np.int32],
     state_ros: npt.NDArray[np.float32],
     state_fli: npt.NDArray[np.float32],
     moisture: npt.NDArray[np.floating],
@@ -163,6 +164,7 @@ def advance_front_until(
                 out_of_bounds[realization] = 1
 
             fire[row, col, realization] = 1
+            state_arrival_time[row, col, realization] = time
             state_ros[row, col, realization] = ros_value
             state_fli[row, col, realization] = fli_value
 

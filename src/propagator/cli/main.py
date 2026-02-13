@@ -251,6 +251,8 @@ def main() -> None:
 
     raster_variables_mapping = {
         "fire_probability": lambda output: output.fire_probability,
+        "mean_arrival_time": lambda output: output.mean_arrival_time,
+        "min_arrival_time": lambda output: output.min_arrival_time,
         "fireline_intensity_mean": lambda output: output.fli_mean,
         "fireline_intensity_max": lambda output: output.fli_max,
         "ros_mean": lambda output: output.ros_mean,
