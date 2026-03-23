@@ -7,6 +7,7 @@ import numpy as np
 from numba import types
 from numba.experimental import jitclass
 from numba.typed import Dict
+import warnings
 
 from propagator.core.constants import FUEL_SYSTEM_LEGACY_DICT
 from propagator.core.models import PropagatorError
@@ -193,7 +194,8 @@ class FuelSystem:
 
     def get_fuel(self, fuel_id: int) -> Fuel:
         if fuel_id not in self.fuels_id:
-            raise PropagatorError(f"Fuel ID {fuel_id} does not exist.")
+            warnings.warn(f"Fuel ID {fuel_id} does not exist - getting non-vegetated fuel.", UserWarning)
+            fuel_id = self._non_vegetated
         i = self.fuels_id[fuel_id]
         return Fuel(
             self.name[i],  # type: ignore
