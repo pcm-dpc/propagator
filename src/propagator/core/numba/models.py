@@ -9,7 +9,6 @@ import numpy as np
 from numba import types
 from numba.experimental import jitclass
 from numba.typed import Dict
-import warnings
 
 from propagator.core.constants import FUEL_SYSTEM_LEGACY_DICT
 from propagator.core.models import PropagatorError
@@ -121,14 +120,8 @@ class FuelSystem:
     # ---------- public getters ----------
     def get_transition_probability(self, from_id: int, to_id: int) -> float:
         if from_id not in self.fuels_id:
-            warnings.warn(
-                f"Fuel ID {from_id} do not exist.", UserWarning
-            )
             from_id = self._non_vegetated
         if to_id not in self.fuels_id:
-            warnings.warn(
-                f"Fuel ID {to_id} do not exist.", UserWarning
-            )
             to_id = self._non_vegetated
         i = self.fuels_id[from_id]
         j = self.fuels_id[to_id]
@@ -202,7 +195,6 @@ class FuelSystem:
 
     def get_fuel(self, fuel_id: int) -> Fuel:
         if fuel_id not in self.fuels_id:
-            warnings.warn(f"Fuel ID {fuel_id} does not exist.", UserWarning)
             fuel_id = self._non_vegetated
         i = self.fuels_id[fuel_id]
         return Fuel(
