@@ -54,7 +54,7 @@ NEIGHBOURS_ANGLE = (
 ) % (2 * np.pi)
 
 
-@jit(cache=True)
+@jit(cache=False)
 def fire_spotting(
     angle: float,
     w_dir: float,
@@ -103,7 +103,7 @@ def compute_spotting(
     wind_dir: float,
     wind_speed: float,
     fuels: FuelSystem,
-) -> list[tuple[int, int, int, float, float]]:
+) -> list[tuple[int, int, int, float, float, bool]]:
     """
     Compute ember spotting updates for a given cell.
 
@@ -128,9 +128,10 @@ def compute_spotting(
 
     Returns
     -------
-    list[tuple[int, int, int, float, float]]
+    list[tuple[int, int, int, float, float, bool]]
         A list of spotting updates, each represented as a tuple
-        (transition_times, rows, cols, rates_of_spread, fireline_intensities)
+        (transition_times, rows, cols, rates_of_spread, fireline_intensities,
+        is_spotting)
     """
 
     # calculate number of embers per emitter > Poisson distribution
@@ -162,7 +163,9 @@ def compute_spotting(
         # vertical delta [meters]
         delta_r = ember_distance * np.cos(ember_angle)
         # horizontal delta [meters]
-        delta_c = ember_distance * np.sin(ember_angle)
+        # Keep the same angle convention used by spread kernels:
+        # 0 -> south, pi/2 -> west, pi -> north, 3pi/2 -> east.
+        delta_c = -ember_distance * np.sin(ember_angle)
 
         # location of the cell to be ignited by the ember
         row_to = row + int(delta_r / cellsize)
@@ -196,13 +199,13 @@ def compute_spotting(
 
         ember_landing_time = max(int(ember_landing_time), 1)
 
-        spotting_update = (ember_landing_time, row_to, col_to, np.nan, np.nan)
+        spotting_update = (ember_landing_time, row_to, col_to, 0.0, 0.0, True)
         spotting_updates.append(spotting_update)
 
     return spotting_updates
 
 
-@jit(cache=True, nopython=True, fastmath=True)
+@jit(cache=False, nopython=True, fastmath=True)
 def calculate_fire_behavior(
     fuel_from: Fuel,
     fuel_to: Fuel,
@@ -288,7 +291,7 @@ def single_cell_updates(
     fuels: FuelSystem,
     p_time_fn: Any,
     p_moist_fn: Any,
-) -> list[tuple[int, int, int, float, float]]:
+) -> list[tuple[int, int, int, float, float, bool]]:
     """
     Apply fire spread to a single cell and get the next spread updates.
 
@@ -323,8 +326,9 @@ def single_cell_updates(
 
     Returns
     -------
-    list[tuple[int, int, int, float, float]]
-        A list of fire spread updates (transition_times, rows, cols, rates_of_spread, fireline_intensities)
+    list[tuple[int, int, int, float, float, bool]]
+        A list of fire spread updates (transition_times, rows, cols,
+        rates_of_spread, fireline_intensities, is_spotting)
     """
 
     # let numba assign the type
@@ -357,7 +361,7 @@ def single_cell_updates(
         dist_to = dist_to_lattice * cellsize
 
         # keep only pixels where fire can spread
-        if fire[row_to, col_to] != 0 or veg_to == NO_FUEL:
+        if fire[row_to, col_to] or veg_to == NO_FUEL:
             continue
 
         dh = dem[row_to, col_to] - dem_from
@@ -396,7 +400,7 @@ def single_cell_updates(
             p_time_fn,
         )
         fire_spread_updates.append(
-            (transition_time, row_to, col_to, ros, fireline_intensity)
+            (transition_time, row_to, col_to, ros, fireline_intensity, False)
         )
 
     if fuel_from.spotting:
@@ -502,9 +506,14 @@ def next_updates_fn(
         )
 
         for fire_spread in fire_spread_update:
-            (transition_time, row_to, col_to, ros, fireline_intensity) = (
-                fire_spread
-            )
+            (
+                transition_time,
+                row_to,
+                col_to,
+                ros,
+                fireline_intensity,
+                _is_spotting,
+            ) = fire_spread
             next_times.append(time + transition_time)
             next_rows.append(row_to)
             next_cols.append(col_to)

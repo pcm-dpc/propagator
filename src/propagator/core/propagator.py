@@ -24,14 +24,13 @@ from propagator.core.models import (
     PropagatorOutput,
     PropagatorStats,
     UpdateBatch,
-    UpdateBatchWithTime,
 )
 from propagator.core.numba import (
     FUEL_SYSTEM_LEGACY,
     FuelSystem,
+    advance_front_until,
     get_p_moisture_fn,
     get_p_time_fn,
-    next_updates_fn,
 )
 from propagator.core.scheduler import Scheduler, SchedulerEvent
 
@@ -104,10 +103,21 @@ class Propagator:
 
     # scheduler object
     scheduler: Scheduler = field(init=False)
+    _front_times: npt.NDArray[np.int32] = field(init=False)
+    _front_rows: npt.NDArray[np.int32] = field(init=False)
+    _front_cols: npt.NDArray[np.int32] = field(init=False)
+    _front_ros: npt.NDArray[np.float32] = field(init=False)
+    _front_fli: npt.NDArray[np.float32] = field(init=False)
+    _front_sizes: npt.NDArray[np.int32] = field(init=False)
+    _front_overflow: npt.NDArray[np.int8] = field(init=False)
+    _front_capacity: int = field(init=False, default=0)
 
     # simulation state
     time: int = field(init=False, default=0)
     fire: npt.NDArray[np.int8] = field(init=False)
+    spotting_generation: npt.NDArray[np.bool_] | None = field(init=False)
+    spotting_receiving: npt.NDArray[np.bool_] | None = field(init=False)
+    arrival_time: npt.NDArray[np.int32] = field(init=False)
     ros: npt.NDArray[np.float32] = field(init=False)
     fireline_int: npt.NDArray[np.float32] = field(init=False)
     moisture: npt.NDArray[np.floating] = field(init=False)
@@ -125,7 +135,38 @@ class Propagator:
         on the vegetation grid shape."""
         shape = self.veg.shape
         self.scheduler = Scheduler(realizations=self.realizations)
+        self._front_capacity = int(self.veg.size)
+        self._front_times = np.zeros(
+            (self.realizations, self._front_capacity), dtype=np.int32
+        )
+        self._front_rows = np.zeros(
+            (self.realizations, self._front_capacity), dtype=np.int32
+        )
+        self._front_cols = np.zeros(
+            (self.realizations, self._front_capacity), dtype=np.int32
+        )
+        self._front_ros = np.zeros(
+            (self.realizations, self._front_capacity), dtype=np.float32
+        )
+        self._front_fli = np.zeros(
+            (self.realizations, self._front_capacity), dtype=np.float32
+        )
+        self._front_sizes = np.zeros((self.realizations,), dtype=np.int32)
+        self._front_overflow = np.zeros((self.realizations,), dtype=np.int8)
         self.fire = np.zeros(shape + (self.realizations,), dtype=np.int8)
+        if self.do_spotting:
+            self.spotting_generation = np.zeros(
+                shape + (self.realizations,), dtype=np.uint32
+            )
+            self.spotting_receiving = np.zeros(
+                shape + (self.realizations,), dtype=np.uint32
+            )
+        else:
+            self.spotting_generation = None
+            self.spotting_receiving = None
+        self.arrival_time = np.zeros(
+            shape + (self.realizations,), dtype=np.int32
+        )
         self.ros = np.zeros(shape + (self.realizations,), dtype=np.float32)
         self.fireline_int = np.zeros(
             shape + (self.realizations,), dtype=np.float32
@@ -144,6 +185,34 @@ class Propagator:
         values = np.mean(self.fire, axis=2).astype(np.float32)
         return values
 
+    def compute_spotting_generation_probability(
+        self,
+    ) -> npt.NDArray[np.floating]:
+        """Return per-cell spotting generation probability."""
+        if self.spotting_generation is None:
+            return np.zeros(self.veg.shape, dtype=np.float32)
+        values = (
+            np.sum(self.spotting_generation, axis=2, dtype=np.float64).astype(
+                np.float32
+            )
+            / self.realizations
+        )
+        return values
+
+    def compute_spotting_receiving_probability(
+        self,
+    ) -> npt.NDArray[np.floating]:
+        """Return per-cell spotting receiving probability."""
+        if self.spotting_receiving is None:
+            return np.zeros(self.veg.shape, dtype=np.float32)
+        values = (
+            np.sum(self.spotting_receiving, axis=2, dtype=np.float64).astype(
+                np.float32
+            )
+            / self.realizations
+        )
+        return values
+
     def compute_ros_max(self) -> npt.NDArray[np.floating]:
         """Return per-cell maximum Rate of Spread across realizations.
 
@@ -154,6 +223,21 @@ class Propagator:
         """
         RoS_max = self._compute_variable_max(self.ros).astype(np.float32)
         return RoS_max
+
+    def compute_arrival_time_min(self) -> npt.NDArray[np.floating]:
+        """Return per-cell minimum arrival time across realizations."""
+        mask = np.sum(self.fire, axis=2) > 0
+        masked = np.where(
+            self.fire > 0, self.arrival_time, np.iinfo(np.int32).max
+        )
+        min_values = np.min(masked, axis=2).astype(np.float32)
+        min_values[~mask] = 0
+        return min_values
+
+    def compute_arrival_time_mean(self) -> npt.NDArray[np.floating]:
+        """Return per-cell mean arrival time across realizations where burned."""
+        arrival_time_f = self.arrival_time.astype(np.float32)
+        return self._compute_variable_mean(arrival_time_f)
 
     def compute_ros_mean(self) -> npt.NDArray[np.floating]:
         """Return per-cell mean Rate of Spread, ignoring zeros as no-spread.
@@ -244,7 +328,7 @@ class Propagator:
         PropagatorStats
             Dataclass with counters and area summaries.
         """
-        n_active = len(self.scheduler.active().tolist())
+        n_active = int(np.sum(self._front_sizes > 0))
         cell_area = self.cellsize**2  # m^2, squared cells
         area_mean = float(np.sum(values) * cell_area)
         area_50 = float(np.sum(values >= 0.5) * cell_area)
@@ -282,7 +366,7 @@ class Propagator:
             moisture = upcast_to_ndarray(
                 boundary_condition.moisture, self.dem.shape
             )
-            event.moisture = moisture / 100.0
+            event.moisture = (moisture / 100.0).astype(np.float32, copy=True)
         if boundary_condition.wind_dir is not None:
             # wind direction is given in degrees clockwise, north is 0
             # we need to transform it to radians, counter-clockwise east is 0
@@ -290,18 +374,18 @@ class Propagator:
                 np.radians(boundary_condition.wind_dir), self.dem.shape
             )
 
-            event.wind_dir = wind_dir_radians
+            event.wind_dir = wind_dir_radians.astype(np.float32, copy=True)
         if boundary_condition.wind_speed is not None:
             # wind speed is given in km/h
             wind_speed = upcast_to_ndarray(
                 boundary_condition.wind_speed, self.dem.shape
             )
-            event.wind_speed = wind_speed
+            event.wind_speed = wind_speed.astype(np.float32, copy=True)
         if boundary_condition.additional_moisture is not None:
             # additional moisture is given as % > transform in fraction
             event.additional_moisture = (
                 boundary_condition.additional_moisture / 100.0
-            )
+            ).astype(np.float32, copy=True)
         if boundary_condition.vegetation_changes is not None:
             event.vegetation_changes = boundary_condition.vegetation_changes
 
@@ -366,67 +450,107 @@ class Propagator:
 
     def _apply_updates(
         self,
-        new_time: int,
         updates: UpdateBatch,
+        new_time: int | None = None,
     ) -> None:
         """Apply a batch of burning updates to the state.
         Parameters
         ----------
-        new_time : int
-            The simulation time of the updates.
         updates : UpdateBatch
             Batch of updates to apply at the current time step.
+        new_time : int | None
+            Optional simulation time to set.
         Returns
         -------
         None
         """
 
-        self.time = new_time
+        if new_time is not None:
+            self.time = new_time
         rows = updates.rows
         cols = updates.cols
         realizations = updates.realizations
         ros = updates.rates_of_spread
         fireline_intensity = updates.fireline_intensities
 
-        self.fire[rows, cols, realizations] = 1
+        self.fire[rows, cols, realizations] = True
+        self.arrival_time[rows, cols, realizations] = int(self.time)
         self.ros[rows, cols, realizations] = ros
         self.fireline_int[rows, cols, realizations] = fireline_intensity
 
-    def _calculate_next_updates(
-        self,
-        updates: UpdateBatch,
-    ) -> None:
+    def _calculate_next_updates(self, updates: UpdateBatch, time: int) -> None:
         """Calculate and schedule the next updates based on the current state.
         Parameters
         ----------
         updates : UpdateBatch
             Batch of updates that were just applied.
+        time : int
+            The simulation time of the updates.
         Returns
         -------
         None
         """
 
-        moisture = self._get_moisture()
-
-        new_updates_tuple = next_updates_fn(
-            updates.rows,
-            updates.cols,
-            updates.realizations,
-            self.cellsize,
-            self.time,
-            self.veg,
-            self.dem,
-            self.fire,
-            moisture,
-            self.wind_dir,
-            self.wind_speed,
-            self.fuels,
-            self.p_time_fn,
-            self.p_moist_fn,
+        raise RuntimeError(
+            "UpdateBatch scheduling is not used in front tracking"
         )
 
-        next_updates = UpdateBatchWithTime.from_tuple(new_updates_tuple)
-        self.scheduler.push_updates(next_updates)
+    def _schedule_ignitions(
+        self, time: int, updates: UpdateBatch | None
+    ) -> None:
+        if updates is None or len(updates.rows) == 0:
+            return
+        for idx in range(len(updates.rows)):
+            realization = int(updates.realizations[idx])
+            self._front_push(
+                realization=realization,
+                time=int(time),
+                row=int(updates.rows[idx]),
+                col=int(updates.cols[idx]),
+                ros=float(updates.rates_of_spread[idx]),
+                fli=float(updates.fireline_intensities[idx]),
+            )
+
+    def _front_push(
+        self,
+        realization: int,
+        time: int,
+        row: int,
+        col: int,
+        ros: float,
+        fli: float,
+    ) -> None:
+        size = int(self._front_sizes[realization])
+        if size >= self._front_capacity:
+            self._front_overflow[realization] = 1
+            return
+        self._front_times[realization, size] = time
+        self._front_rows[realization, size] = row
+        self._front_cols[realization, size] = col
+        self._front_ros[realization, size] = ros
+        self._front_fli[realization, size] = fli
+
+        idx = size
+        while idx > 0:
+            parent = (idx - 1) // 2
+            if (
+                self._front_times[realization, parent]
+                <= self._front_times[realization, idx]
+            ):
+                break
+            for arr in (
+                self._front_times,
+                self._front_rows,
+                self._front_cols,
+                self._front_ros,
+                self._front_fli,
+            ):
+                arr[realization, parent], arr[realization, idx] = (
+                    arr[realization, idx],
+                    arr[realization, parent],
+                )
+            idx = parent
+        self._front_sizes[realization] = size + 1
 
     def _decay_actions_moisture(
         self, time_delta: int, decay_factor: float = 0.01
@@ -458,7 +582,7 @@ class Propagator:
             return self.moisture
 
         moisture = self.moisture + self.actions_moisture
-        moisture = np.clip(moisture, 0.0, 1.0)
+        moisture = np.clip(moisture, 0.0, 1.0).astype(np.float32, copy=False)
 
         return moisture
 
@@ -473,7 +597,7 @@ class Propagator:
 
     def _check_out_of_bounds(self, updates: UpdateBatch) -> None:
         # check that all updates are within bounds
-        bbox = updates.bbox
+        bbox = updates.get_bbox()
         if bbox is None:
             return
 
@@ -536,22 +660,32 @@ class Propagator:
         None
         """
 
-        self._decay_actions_moisture(time_delta)
+        if time_delta > 0:
+            self._decay_actions_moisture(time_delta)
 
         if scheduler_event.moisture is not None:
-            self.moisture = scheduler_event.moisture
+            self.moisture = scheduler_event.moisture.astype(
+                np.float32, copy=False
+            )
 
         if scheduler_event.additional_moisture is not None:
             if self.actions_moisture is None:
                 self.actions_moisture = np.zeros_like(self.moisture)
             self.actions_moisture += scheduler_event.additional_moisture
             self.actions_moisture = np.clip(self.actions_moisture, 0.0, 1.0)
+            self.actions_moisture = self.actions_moisture.astype(
+                np.float32, copy=False
+            )
 
         if scheduler_event.wind_dir is not None:
-            self.wind_dir = scheduler_event.wind_dir
+            self.wind_dir = scheduler_event.wind_dir.astype(
+                np.float32, copy=False
+            )
 
         if scheduler_event.wind_speed is not None:
-            self.wind_speed = scheduler_event.wind_speed
+            self.wind_speed = scheduler_event.wind_speed.astype(
+                np.float32, copy=False
+            )
 
     def _update_vegetation(self, scheduler_event: SchedulerEvent) -> None:
         if scheduler_event.vegetation_changes is not None:
@@ -561,25 +695,144 @@ class Propagator:
 
     def step(
         self,
+        seconds: int | None = None,
+        *,
+        until: int | None = None,
     ) -> None:
         """Advance the simulation to the next scheduled
         time and update state."""
 
-        new_time, scheduler_event = self.scheduler.pop()
-        time_delta = new_time - self.time
+        if seconds is not None and until is not None:
+            raise ValueError("Provide either seconds or until, not both.")
 
-        self._update_boundary_conditions(time_delta, scheduler_event)
-        self._update_vegetation(scheduler_event)
+        window = seconds if seconds is not None else until
+        if window is None:
+            self._step_legacy()
+        else:
+            if window < 0:
+                raise ValueError("seconds/until must be non-negative.")
+            self._step_window(window)
 
-        valid_updates = None
-        if scheduler_event.updates is not None:
-            valid_updates = self._filter_valid_updates(scheduler_event.updates)
-            self._apply_updates(new_time, valid_updates)
+    def _step_legacy(self) -> None:
+        next_bc_time = self.scheduler.next_time()
+        next_prop_time = self._next_front_time()
+        if next_bc_time is None and next_prop_time is None:
+            return
 
-            if self.out_of_bounds_mode == "raise":
-                self._check_out_of_bounds(valid_updates)
+        times = [
+            time for time in (next_bc_time, next_prop_time) if time is not None
+        ]
+        new_time = min(times)
 
-            self._calculate_next_updates(valid_updates)
+        if next_bc_time == new_time:
+            new_time, scheduler_event = self.scheduler.pop()
+            time_delta = new_time - self.time
+            self._update_boundary_conditions(time_delta, scheduler_event)
+            self._update_vegetation(scheduler_event)
+            self._schedule_ignitions(new_time, scheduler_event.updates)
+        else:
+            if new_time > self.time:
+                self._decay_actions_moisture(new_time - self.time)
+
+        self._propagate_until(new_time)
+        self.time = new_time
+
+    def _step_window(self, window: int) -> None:
+        target_time = self.time + window
+
+        while True:
+            next_bc_time = self.scheduler.next_time()
+            if next_bc_time is None or next_bc_time > target_time:
+                segment_end = target_time
+            else:
+                segment_end = next_bc_time
+
+            segment_start = self.time
+            if segment_end > segment_start:
+                self._decay_actions_moisture(segment_end - segment_start)
+            self._propagate_until(segment_end)
+
+            if next_bc_time is None or next_bc_time > target_time:
+                self.time = segment_end
+                break
+
+            bc_time, scheduler_event = self.scheduler.pop()
+            self._update_boundary_conditions(0, scheduler_event)
+            self._update_vegetation(scheduler_event)
+            self._schedule_ignitions(bc_time, scheduler_event.updates)
+            self.time = bc_time
+
+    def _propagate_until(self, end_time: int) -> None:
+        if int(np.sum(self._front_sizes)) == 0:
+            return
+
+        moisture = self._get_moisture()
+        out_of_bounds = np.zeros((self.realizations,), dtype=np.int8)
+        dummy_spotting = np.zeros((1, 1, 1), dtype=np.uint32)
+        spotting_generation = (
+            self.spotting_generation
+            if self.spotting_generation is not None
+            else dummy_spotting
+        )
+        spotting_receiving = (
+            self.spotting_receiving
+            if self.spotting_receiving is not None
+            else dummy_spotting
+        )
+
+        advance_front_until(
+            int(end_time),
+            int(self._front_capacity),
+            self._front_times,
+            self._front_rows,
+            self._front_cols,
+            self._front_ros,
+            self._front_fli,
+            self._front_sizes,
+            self._front_overflow,
+            self.cellsize,
+            self.veg,
+            self.dem,
+            self.fire,
+            spotting_generation,
+            spotting_receiving,
+            self.arrival_time,
+            self.ros,
+            self.fireline_int,
+            moisture,
+            self.wind_dir,
+            self.wind_speed,
+            self.fuels,
+            self.p_time_fn,
+            self.p_moist_fn,
+            out_of_bounds,
+            self.do_spotting,
+        )
+
+        if int(np.sum(self._front_overflow)) > 0:
+            raise RuntimeError(
+                "Propagation front queue overflowed capacity; increase capacity."
+            )
+
+        if (
+            self.out_of_bounds_mode == "raise"
+            and int(np.sum(out_of_bounds)) > 0
+        ):
+            raise PropagatorOutOfBoundsError("""Simulation reached the edge of the grid.
+                             To ignore this error, set out_of_bounds_mode to 'ignore'.""")
+
+    def _next_front_time(self) -> int | None:
+        if int(np.sum(self._front_sizes)) == 0:
+            return None
+        min_time = None
+        for realization in range(self.realizations):
+            size = int(self._front_sizes[realization])
+            if size == 0:
+                continue
+            time = int(self._front_times[realization, 0])
+            if min_time is None or time < min_time:
+                min_time = time
+        return min_time
 
     def get_output(self) -> PropagatorOutput:
         """Assemble the current outputs and summary stats into a dataclass.
@@ -589,6 +842,14 @@ class Propagator:
                 RoS, intensity, stats.
         """
         fire_probability = self.compute_fire_probability()
+        spotting_generation_probability = (
+            self.compute_spotting_generation_probability()
+        )
+        spotting_receiving_probability = (
+            self.compute_spotting_receiving_probability()
+        )
+        min_arrival_time = self.compute_arrival_time_min()
+        mean_arrival_time = self.compute_arrival_time_mean()
         ros_max = self.compute_ros_max()
         ros_mean = self.compute_ros_mean()
         fireline_intensity_max = self.compute_fireline_int_max()
@@ -598,6 +859,10 @@ class Propagator:
         return PropagatorOutput(
             time=int(self.time),
             fire_probability=fire_probability,
+            spotting_generation_probability=spotting_generation_probability,
+            spotting_receiving_probability=spotting_receiving_probability,
+            mean_arrival_time=mean_arrival_time,
+            min_arrival_time=min_arrival_time,
             ros_mean=ros_mean,
             ros_max=ros_max,
             fli_mean=fireline_intensity_mean,
@@ -613,7 +878,13 @@ class Propagator:
             int | None: 0 at initialization; None if no more events; otherwise
             the next scheduled simulation time.
         """
-        if len(self.scheduler) == 0:
-            return None
+        next_bc_time = self.scheduler.next_time()
+        next_prop_time = self._next_front_time()
 
-        return self.scheduler.next_time()
+        if next_bc_time is None and next_prop_time is None:
+            return None
+        if next_bc_time is None:
+            return next_prop_time
+        if next_prop_time is None:
+            return next_bc_time
+        return min(next_bc_time, next_prop_time)

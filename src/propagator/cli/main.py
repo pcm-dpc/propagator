@@ -249,15 +249,30 @@ def main() -> None:
     geo_info = loader.get_geo_info()
     dst_crs = CRS.from_epsg(4326)
 
+    raster_variables_mapping = {
+        "fire_probability": lambda output: output.fire_probability,
+        "mean_arrival_time": lambda output: output.mean_arrival_time,
+        "min_arrival_time": lambda output: output.min_arrival_time,
+        "fireline_intensity_mean": lambda output: output.fli_mean,
+        "fireline_intensity_max": lambda output: output.fli_max,
+        "ros_mean": lambda output: output.ros_mean,
+        "ros_max": lambda output: output.ros_max,
+    }
+    if cfg.do_spotting:
+        raster_variables_mapping.update(
+            {
+                "spotting_generation_probability": (
+                    lambda output: output.spotting_generation_probability
+                ),
+                "spotting_receiving_probability": (
+                    lambda output: output.spotting_receiving_probability
+                ),
+            }
+        )
+
     raster_writer = GeoTiffWriter(
         start_date=cfg.init_date,
-        raster_variables_mapping={
-            "fire_probability": lambda output: output.fire_probability,
-            "fireline_intensity_mean": lambda output: output.fli_mean,
-            "fireline_intensity_max": lambda output: output.fli_max,
-            "ros_mean": lambda output: output.ros_mean,
-            "ros_max": lambda output: output.ros_max,
-        },
+        raster_variables_mapping=raster_variables_mapping,
         output_folder=cli.output,
         geo_info=geo_info,
         dst_crs=dst_crs,
@@ -309,22 +324,22 @@ def main() -> None:
             break
 
         try:
-            simulator.step()
+            simulator.step(seconds=cfg.time_resolution)
         except PropagatorOutOfBoundsError as e:
             warn(f"Simulation stopped due to PropagatorOutOfBoundsError: {e}")
             break
+
         finally:
-            if simulator.time % cfg.time_resolution == 0:
-                output = simulator.get_output()
+            output = simulator.get_output()
 
-                status_propagator_msg(
-                    cfg.init_date,
-                    output.time,
-                    output.stats,
-                    verbose=cli.verbose,
-                )
+            status_propagator_msg(
+                cfg.init_date,
+                output.time,
+                output.stats,
+                verbose=cli.verbose,
+            )
 
-                writer.write_output(output)
+            writer.write_output(output)
 
         if simulator.time > cfg.time_limit:
             break

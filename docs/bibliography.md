@@ -10,6 +10,14 @@ and applications to prescribed fire planning.
   wildfire simulator.” *Fire* 3(3):26, 2020.
   [doi:10.3390/fire3030026](https://doi.org/10.3390/fire3030026)
 
+## Fire Spotting
+
+- A. Alexandridis, D. Vakalis, C. I. Siettos, and G. V. Bafas. “A cellular
+  automata model for forest fire spread prediction: The case of the wildfire
+  that swept through Spetses Island in 1990.” *Applied Mathematics and
+  Computation* 204(1):191–201, 2008.
+  [doi:10.1016/j.amc.2008.06.046](https://doi.org/10.1016/j.amc.2008.06.046)
+
 ## Operational Deployments
 
 - A. Trucchia, M. D’Andrea, F. Baghino, N. Perello, N. Rebora, and P. Fiorucci.

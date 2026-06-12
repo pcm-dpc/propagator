@@ -1,0 +1,68 @@
+================================================================================
+LARGE DOMAIN BENCHMARK: 5000x5000 grid, 100 realizations
+================================================================================
+
+Setting up 5000x5000 domain...
+Setup completed in 0.06s
+
+Warming up (JIT compilation)...
+Warmup completed in 2.27s at t=243s
+
+Running benchmark...
+Initial state: time=243s
+  Step 1000: sim_time=2554.0s, real_time=0.09s
+  Step 2000: sim_time=3602.0s, real_time=0.20s
+  Step 3000: sim_time=4602.0s, real_time=0.33s
+  Step 4000: sim_time=5602.0s, real_time=0.48s
+  Step 5000: sim_time=6602.0s, real_time=0.64s
+  Step 6000: sim_time=7602.0s, real_time=0.81s
+  Step 7000: sim_time=8602.0s, real_time=1.01s
+  Step 8000: sim_time=9602.0s, real_time=1.21s
+  Step 9000: sim_time=10602.0s, real_time=1.43s
+  Step 10000: sim_time=11602.0s, real_time=1.66s
+  Step 11000: sim_time=12602.0s, real_time=1.91s
+  Step 12000: sim_time=13602.0s, real_time=2.16s
+  Step 13000: sim_time=14602.0s, real_time=2.45s
+  Step 14000: sim_time=15602.0s, real_time=2.75s
+  Step 15000: sim_time=16602.0s, real_time=3.04s
+  Step 16000: sim_time=17602.0s, real_time=3.36s
+  Step 17000: sim_time=18602.0s, real_time=3.69s
+  Step 18000: sim_time=19602.0s, real_time=4.04s
+  Step 19000: sim_time=20602.0s, real_time=4.41s
+  Step 20000: sim_time=21602.0s, real_time=4.79s
+  Step 21000: sim_time=22602.0s, real_time=5.18s
+  Step 22000: sim_time=23602.0s, real_time=5.60s
+  Step 23000: sim_time=24602.0s, real_time=6.03s
+  Step 24000: sim_time=25602.0s, real_time=6.47s
+  Step 25000: sim_time=26602.0s, real_time=6.94s
+  Step 26000: sim_time=27602.0s, real_time=7.42s
+  Step 27000: sim_time=28602.0s, real_time=7.91s
+  Step 28000: sim_time=29602.0s, real_time=8.41s
+  Step 29000: sim_time=30602.0s, real_time=8.95s
+  Step 30000: sim_time=31602.0s, real_time=9.50s
+  Step 31000: sim_time=32602.0s, real_time=10.05s
+  Step 32000: sim_time=33602.0s, real_time=10.61s
+  Step 33000: sim_time=34602.0s, real_time=11.18s
+  Step 34000: sim_time=35602.0s, real_time=11.75s
+  Step 35000: sim_time=36602.0s, real_time=12.37s
+  Step 36000: sim_time=37602.0s, real_time=13.00s
+  Step 37000: sim_time=38602.0s, real_time=13.68s
+  Step 38000: sim_time=39602.0s, real_time=14.34s
+  Step 39000: sim_time=40602.0s, real_time=15.01s
+  Step 40000: sim_time=41602.0s, real_time=15.69s
+  Step 41000: sim_time=42602.0s, real_time=16.39s
+
+================================================================================
+BENCHMARK RESULTS
+================================================================================
+Domain size:          5000x5000 cells
+Total cells:          25,000,000
+Realizations:         100
+Steps executed:       41598
+Simulation time:      43200.0s
+Benchmark duration:   16.83s
+Steps per second:     2472.36
+Sim time per step:    1.04s
+Real time per step:   0.40ms
+Est. state memory:    9536.7 MB
+================================================================================

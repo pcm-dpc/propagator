@@ -24,6 +24,37 @@ def make_propagator(realizations: int = 2) -> Propagator:
     return propagator
 
 
+def test_spotting_state_allocated_only_when_enabled():
+    base_veg = np.array([[1, 2], [3, 4]], dtype=np.int32)
+    base_dem = np.zeros_like(base_veg, dtype=np.float32)
+
+    no_spotting = Propagator(
+        veg=base_veg,
+        dem=base_dem,
+        realizations=2,
+        do_spotting=False,
+    )
+    assert no_spotting.spotting_generation is None
+    assert no_spotting.spotting_receiving is None
+    np.testing.assert_allclose(
+        no_spotting.compute_spotting_generation_probability(),
+        np.zeros(base_veg.shape, dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        no_spotting.compute_spotting_receiving_probability(),
+        np.zeros(base_veg.shape, dtype=np.float32),
+    )
+
+    with_spotting = Propagator(
+        veg=base_veg,
+        dem=base_dem,
+        realizations=2,
+        do_spotting=True,
+    )
+    assert with_spotting.spotting_generation is not None
+    assert with_spotting.spotting_receiving is not None
+
+
 def test_compute_fire_probability_and_means():
     propagator = make_propagator(realizations=2)
 
@@ -48,6 +79,27 @@ def test_compute_fire_probability_and_means():
         ],
         dtype=np.float32,
     )
+    propagator.arrival_time = np.array(
+        [
+            [[10, 0], [0, 20]],
+            [[15, 25], [0, 0]],
+        ],
+        dtype=np.int32,
+    )
+    propagator.spotting_generation = np.array(
+        [
+            [[1, 0], [0, 0]],
+            [[1, 1], [0, 0]],
+        ],
+        dtype=np.uint32,
+    )
+    propagator.spotting_receiving = np.array(
+        [
+            [[0, 0], [1, 1]],
+            [[0, 1], [0, 0]],
+        ],
+        dtype=np.uint32,
+    )
 
     prob = propagator.compute_fire_probability()
     np.testing.assert_allclose(
@@ -59,6 +111,55 @@ def test_compute_fire_probability_and_means():
             ],
             dtype=np.float32,
         ),
+    )
+
+    spotting_gen_prob = propagator.compute_spotting_generation_probability()
+    np.testing.assert_allclose(
+        spotting_gen_prob,
+        np.array(
+            [
+                [0.5, 0.0],
+                [1.0, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    spotting_recv_prob = propagator.compute_spotting_receiving_probability()
+    np.testing.assert_allclose(
+        spotting_recv_prob,
+        np.array(
+            [
+                [0.0, 1.0],
+                [0.5, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    min_arrival = propagator.compute_arrival_time_min()
+    np.testing.assert_allclose(
+        min_arrival,
+        np.array(
+            [
+                [10.0, 20.0],
+                [15.0, 0.0],
+            ],
+            dtype=np.float32,
+        ),
+    )
+
+    mean_arrival = propagator.compute_arrival_time_mean()
+    np.testing.assert_allclose(
+        mean_arrival,
+        np.array(
+            [
+                [10.0, 20.0],
+                [20.0, np.nan],
+            ],
+            dtype=np.float32,
+        ),
+        equal_nan=True,
     )
 
     ros_max = propagator.compute_ros_max()
@@ -112,6 +213,43 @@ def test_compute_fire_probability_and_means():
     )
 
 
+def test_get_output_includes_spotting_probabilities():
+    propagator = make_propagator(realizations=2)
+    propagator.time = 60
+    propagator.fire = np.array(
+        [[[1, 0], [0, 0]], [[0, 1], [0, 0]]], dtype=np.int8
+    )
+    propagator.spotting_generation = np.array(
+        [[[1, 0], [0, 1]], [[0, 0], [0, 0]]], dtype=np.uint32
+    )
+    propagator.spotting_receiving = np.array(
+        [[[0, 1], [0, 0]], [[1, 0], [0, 0]]], dtype=np.uint32
+    )
+    propagator.arrival_time = np.array(
+        [[[5, 0], [0, 0]], [[0, 9], [0, 0]]], dtype=np.int32
+    )
+
+    output = propagator.get_output()
+
+    np.testing.assert_allclose(
+        output.spotting_generation_probability,
+        np.array([[0.5, 0.5], [0.0, 0.0]], dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        output.spotting_receiving_probability,
+        np.array([[0.5, 0.0], [0.5, 0.0]], dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        output.min_arrival_time,
+        np.array([[5.0, 0.0], [9.0, 0.0]], dtype=np.float32),
+    )
+    np.testing.assert_allclose(
+        output.mean_arrival_time,
+        np.array([[5.0, np.nan], [9.0, np.nan]], dtype=np.float32),
+        equal_nan=True,
+    )
+
+
 def test_compute_stats_counts_active_and_thresholds():
     propagator = make_propagator(realizations=2)
 
@@ -122,7 +260,7 @@ def test_compute_stats_counts_active_and_thresholds():
         rates_of_spread=np.array([0.3, 0.4], dtype=np.float32),
         fireline_intensities=np.array([1.0, 2.0], dtype=np.float32),
     )
-    propagator.scheduler.add_event(1, SchedulerEvent(updates=updates))
+    propagator._schedule_ignitions(1, updates)
 
     values = np.array(
         [
@@ -233,7 +371,7 @@ def test_decay_actions_moisture_exponential():
     assert propagator.actions_moisture is None
 
 
-def test_apply_updates_schedules_follow_up(monkeypatch):
+def test_apply_updates_updates_state():
     propagator = make_propagator(realizations=1)
 
     updates = UpdateBatch(
@@ -245,21 +383,10 @@ def test_apply_updates_schedules_follow_up(monkeypatch):
     )
 
     future_time = 5
-    stub = (
-        np.array([future_time], dtype=np.int32),
-        np.array([1], dtype=np.int32),
-        np.array([0], dtype=np.int32),
-        np.array([0], dtype=np.int32),
-        np.array([0.4], dtype=np.float32),
-        np.array([12.0], dtype=np.float32),
-    )
-    monkeypatch.setattr(
-        "propagator.core.propagator.next_updates_fn", lambda *_, **__: stub
-    )
-
-    propagator._apply_updates(future_time, updates)
+    propagator._apply_updates(updates, new_time=future_time)
 
     assert propagator.fire[0, 1, 0] == 1
+    assert propagator.arrival_time[0, 1, 0] == future_time
     assert propagator.ros[0, 1, 0] == pytest.approx(2.5)
     assert propagator.fireline_int[0, 1, 0] == pytest.approx(7.5)
 
@@ -267,21 +394,9 @@ def test_apply_updates_schedules_follow_up(monkeypatch):
     assert time == future_time
 
 
-def test_step_applies_event(monkeypatch):
+def test_step_applies_event():
     propagator = make_propagator(realizations=1)
     propagator.actions_moisture = np.full((2, 2), 0.5, dtype=np.float32)
-
-    stub = (
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.int32),
-        np.empty((0,), dtype=np.float32),
-        np.empty((0,), dtype=np.float32),
-    )
-    monkeypatch.setattr(
-        "propagator.core.propagator.next_updates_fn", lambda *_, **__: stub
-    )
 
     event = SchedulerEvent(
         moisture=np.full((2, 2), 0.2, dtype=np.float32),

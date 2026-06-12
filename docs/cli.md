@@ -59,8 +59,10 @@ Boolean switches use implicit flags: including `--verbose`, `--record`, or
 ## Output Products
 
 During the run, the CLI periodically writes:
-- GeoTIFF rasters for fire probability, fireline intensity (mean/max), and rate
-  of spread (mean/max).
+- GeoTIFF rasters for fire probability, arrival time (min/mean), fireline
+  intensity (mean/max), and rate of spread (mean/max). When `do_spotting` is
+  enabled in the configuration, spotting generation and receiving probability
+  rasters are written as well (see [Fire Spotting](spotting.md)).
 - GeoJSON isochrones for configured probability thresholds.
 - Metadata JSON capturing CLI arguments, execution time, and summary statistics.
 

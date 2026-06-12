@@ -51,7 +51,7 @@ RateOfSpreadModel = Literal["wang", "rothermel"]
 MoistureModel = Literal["trucchia", "baghino"]
 
 
-@jit(cache=True)
+@jit(cache=False)
 def clip(x: float, min: float, max: float) -> float:
     """Clip x to the range [min, max].
 
@@ -307,7 +307,7 @@ def p_time_standard(
     return time_seconds, v_wh
 
 
-@jit(cache=True)
+@jit(cache=False)
 def w_h_effect(
     angle: float,
     w_speed: float,
@@ -350,7 +350,7 @@ def w_h_effect(
     return w_h
 
 
-@jit(cache=True)
+@jit(cache=False)
 def w_h_effect_on_probability(
     angle: float,
     w_speed: float,
@@ -447,7 +447,7 @@ def p_moisture_baghino(
     return p_moist
 
 
-@jit(cache=True)
+@jit(cache=False)
 def lhv_fuel(
     hhv: float,
     moisture: float,
@@ -467,7 +467,7 @@ def lhv_fuel(
     return lhv
 
 
-@jit(cache=True)
+@jit(cache=False)
 def fireline_intensity(
     d0: float, d1: float, ros: float, lhv_dead_fuel: float, lhv_canopy: float
 ) -> float:
@@ -496,7 +496,7 @@ def fireline_intensity(
     return intensity
 
 
-@jit(cache=True, nopython=True, fastmath=True)
+@jit(cache=False, nopython=True, fastmath=True)
 def get_probability_to_neighbour(
     angle: float,
     dist: float,

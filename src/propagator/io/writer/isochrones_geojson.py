@@ -9,9 +9,8 @@ import pandas as pd
 from pyproj import CRS
 from rasterio.features import shapes  # type: ignore
 from rasterio.transform import Affine  # type: ignore
-from scipy.ndimage.filters import gaussian_filter1d
-from scipy.ndimage.morphology import binary_dilation, binary_erosion
-from scipy.signal.signaltools import medfilt2d
+from scipy.ndimage import binary_dilation, binary_erosion, gaussian_filter1d
+from scipy.signal import medfilt2d
 from shapely.geometry import LineString, MultiLineString, shape
 
 from propagator.core.models import PropagatorOutput
