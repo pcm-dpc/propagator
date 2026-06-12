@@ -31,4 +31,6 @@
 - [Getting started](getting-started.md): prerequisites, install, first simulation, and programmatic API tips
 - [Programmatic Workflow](programmatic.md): end-to-end scripting with loaders and writers
 - [CLI](cli.md): command options, modes, and logging
+- [Simulation Outputs](outputs.md): output fields, units, and aggregation across realizations
+- [Fire Spotting](spotting.md): ember-transport model, configuration, and outputs
 - [API](reference/index.md): Python package and Numba backend reference
