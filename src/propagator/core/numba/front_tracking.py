@@ -181,6 +181,7 @@ def advance_front_until(
                 fuels,
                 p_time_fn,
                 p_moist_fn,
+                fli_value,
             )
 
             for update in updates:
