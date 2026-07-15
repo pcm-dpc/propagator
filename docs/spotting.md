@@ -45,6 +45,12 @@ When a fire-prone cell burns, embers may be launched downwind. For each ember:
 - The ember lands after a travel time proportional to distance over wind
   speed, and ignites the landing cell with a constant base probability
   corrected by the receiving cell's vegetation.
+- Once an ember successfully ignites a cell,
+  the model adds a **delay before the spot fire becomes capable of
+  propagation**, to represent the time an ember needs to smoulder and develop
+  into a spreading fire. This delay is sampled per ember from a lognormal
+  distribution (median 600 s, log-scale standard deviation 0.4) and added to
+  the ember travel time. The cell only starts spreading once this combined time has elapsed.
 
 With no wind, embers travel a negligible distance: spotting is effectively a
 strong-wind phenomenon in this formulation.
